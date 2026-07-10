@@ -10,7 +10,9 @@ import "package:edulink/core/utils/formatters.dart";
 import "package:edulink/core/utils/snackbar_utils.dart";
 import "package:edulink/data/repositories/academics_repository.dart";
 import "package:edulink/data/repositories/assessment_repository.dart";
+import "package:edulink/data/repositories/attendance_repository.dart";
 import "package:edulink/domain/entities/assignment.dart";
+import "package:edulink/domain/entities/attendance_record.dart";
 import "package:edulink/domain/entities/custom_test.dart";
 import "package:edulink/domain/entities/enrollment.dart";
 import "package:edulink/domain/entities/quiz.dart";
@@ -22,12 +24,36 @@ import "package:edulink/domain/entities/subject.dart";
 import "package:edulink/domain/entities/submission.dart";
 import "package:edulink/domain/entities/test_result.dart";
 import "package:edulink/presentation/web/pages/web_performance_pages.dart";
+import "package:edulink/presentation/web/web_dashboard_controller.dart";
 import "package:edulink/presentation/web/web_modals.dart";
 import "package:edulink/presentation/web/web_tokens.dart";
 import "package:edulink/presentation/web/web_widgets.dart";
 
+/// The three kinds of assessment a subject can hold, presented as one list.
+enum _AsmtType { assignment, quiz, exam }
+
+/// A unified row that wraps whichever underlying assessment it represents so
+/// assignments, quizzes and exams can be shown in a single filterable list.
+class _AssessmentRow {
+  final _AsmtType type;
+  final String title;
+  final String meta;
+  final Assignment? assignment;
+  final Quiz? quiz;
+  final CustomTest? customTest;
+
+  const _AssessmentRow({
+    required this.type,
+    required this.title,
+    required this.meta,
+    this.assignment,
+    this.quiz,
+    this.customTest,
+  });
+}
+
 /// Web drill-down that lets teachers and admins browse a class's activities:
-/// subjects → assignments/quizzes → submissions (with grading) & quiz results.
+/// subjects → assessments → submissions (with grading), quiz results & marks.
 class WebClassActivitiesScreen extends StatefulWidget {
   final SchoolClass cls;
   final Subject? initialSubject;
@@ -42,9 +68,12 @@ class WebClassActivitiesScreen extends StatefulWidget {
 class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
   final _assessment = Get.find<AssessmentRepository>();
   final _academics = Get.find<AcademicsRepository>();
+  final _attendanceRepo = Get.find<AttendanceRepository>();
   UserRole get _role => Get.find<SessionController>().role;
   String get _uid => Get.find<SessionController>().userId ?? "";
   bool get _canGrade => _role.canGrade;
+  bool get _canManageClass => _role.isPrincipal;
+  bool get _canAttend => _role.canMarkAttendance;
 
   /// Principals can manage any subject; teachers only the subjects they teach.
   bool _canManage(Subject s) =>
@@ -57,10 +86,10 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
   Assignment? _assignment;
   Quiz? _quiz;
   CustomTest? _customTest;
+  bool _showAttendance = false;
 
-  Future<List<Assignment>>? _assignmentsFuture;
-  Future<List<Quiz>>? _quizzesFuture;
-  Future<List<CustomTest>>? _customTestsFuture;
+  Future<List<_AssessmentRow>>? _assessmentsFuture;
+  _AsmtType? _filter; // null = show all
   Future<List<Submission>>? _submissionsFuture;
   Future<List<QuizQuestion>>? _questionsFuture;
   Future<List<QuizResult>>? _resultsFuture;
@@ -72,11 +101,47 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
     _studentsFuture = _academics.enrollments(widget.cls.id);
     if (widget.initialSubject != null) {
       _subject = widget.initialSubject;
-      _assignmentsFuture =
-          _assessment.assignmentsForSubject(widget.initialSubject!.id);
-      _quizzesFuture = _assessment.quizzes(widget.initialSubject!.id);
-      _customTestsFuture =
-          _assessment.customTestsForSubject(widget.initialSubject!.id);
+      _assessmentsFuture = _loadAssessments(widget.initialSubject!.id);
+    }
+  }
+
+  /// Loads assignments, quizzes and exams for a subject and merges them into a
+  /// single, typed list so the subject view can show one unified table.
+  Future<List<_AssessmentRow>> _loadAssessments(String subjectId) async {
+    final assignments = await _assessment.assignmentsForSubject(subjectId);
+    final quizzes = await _assessment.quizzes(subjectId);
+    final tests = await _assessment.customTestsForSubject(subjectId);
+    return [
+      for (final a in assignments)
+        _AssessmentRow(
+          type: _AsmtType.assignment,
+          title: a.title,
+          meta:
+              "${a.dueDate == null ? "No due date" : "Due ${Formatters.date(a.dueDate!)}"}  •  Max ${a.maxPoints} pts",
+          assignment: a,
+        ),
+      for (final q in quizzes)
+        _AssessmentRow(
+          type: _AsmtType.quiz,
+          title: q.title,
+          meta:
+              "${q.questionCount} question${q.questionCount == 1 ? "" : "s"}  •  auto-graded",
+          quiz: q,
+        ),
+      for (final ct in tests)
+        _AssessmentRow(
+          type: _AsmtType.exam,
+          title: ct.title,
+          meta:
+              "${ct.testDate == null ? "No date" : Formatters.date(ct.testDate!)}  •  Max ${ct.maxMarks} marks",
+          customTest: ct,
+        ),
+    ];
+  }
+
+  void _refreshAssessments() {
+    if (_subject != null) {
+      _assessmentsFuture = _loadAssessments(_subject!.id);
     }
   }
 
@@ -86,9 +151,8 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
       _assignment = null;
       _quiz = null;
       _customTest = null;
-      _assignmentsFuture = _assessment.assignmentsForSubject(s.id);
-      _quizzesFuture = _assessment.quizzes(s.id);
-      _customTestsFuture = _assessment.customTestsForSubject(s.id);
+      _filter = null;
+      _assessmentsFuture = _loadAssessments(s.id);
     });
   }
 
@@ -121,7 +185,9 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
 
   void _back() {
     setState(() {
-      if (_assignment != null) {
+      if (_showAttendance) {
+        _showAttendance = false;
+      } else if (_assignment != null) {
         _assignment = null;
       } else if (_quiz != null) {
         _quiz = null;
@@ -154,6 +220,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
   Widget _bar(WebTokens t) {
     final crumbs = <String>[
       widget.cls.displayName,
+      if (_showAttendance) "Attendance",
       if (_subject != null) _subject!.name,
       if (_assignment != null) _assignment!.title,
       if (_quiz != null) _quiz!.title,
@@ -201,6 +268,15 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
   }
 
   Widget _body(WebTokens t) {
+    if (_showAttendance) {
+      return _ClassAttendance(
+        cls: widget.cls,
+        academics: _academics,
+        attendance: _attendanceRepo,
+        canMark: _canAttend,
+        markedBy: _uid,
+      );
+    }
     if (_assignment != null) return _assignmentDetail(t);
     if (_quiz != null) return _quizDetail(t);
     if (_customTest != null) return _customTestDetail(t);
@@ -216,6 +292,15 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
           title: widget.cls.displayName,
           subtitle:
               "Class overview — subjects and enrolled students. Open a subject to view its activities.",
+          actions: [
+            if (_canAttend)
+              WebButton(
+                label: "Take attendance",
+                icon: Iconsax.calendar_tick,
+                kind: WebBtnKind.primary,
+                onTap: () => setState(() => _showAttendance = true),
+              ),
+          ],
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
@@ -295,7 +380,14 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
                 padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
                 child: SectionHead(
                   title: loading ? "Students" : "Students (${students.length})",
-                  subtitle: "Everyone enrolled in this class",
+                  subtitle: "Each student belongs to one class only",
+                  trailing: _canManageClass
+                      ? WebButton(
+                          label: "Enroll student",
+                          icon: Iconsax.add,
+                          kind: WebBtnKind.primary,
+                          onTap: _enrollStudent)
+                      : null,
                 ),
               ),
               const SizedBox(height: 12),
@@ -333,10 +425,17 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
                         Text(students[i].rollNo ?? "—"),
                         Text(students[i].studentEmail ?? "—",
                             maxLines: 1, overflow: TextOverflow.ellipsis),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: TableAction(Iconsax.chart_success,
-                              onTap: () => _openReport(students[i])),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TableAction(Iconsax.chart_success,
+                                onTap: () => _openReport(students[i])),
+                            if (_canManageClass) ...[
+                              const SizedBox(width: 5),
+                              TableAction(Iconsax.profile_remove,
+                                  onTap: () => _removeFromClass(students[i])),
+                            ],
+                          ],
                         ),
                       ],
                   ],
@@ -358,7 +457,103 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
     Get.to(() => WebStudentReportScreen(student: student));
   }
 
-  // ── Level 2: subject (assignments + quizzes) ──
+  Future<void> _enrollStudent() async {
+    final t = WebTokens.of(context);
+    final students = Get.find<WebDashboardController>().students.toList()
+      ..sort((a, b) =>
+          a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+    if (students.isEmpty) {
+      SnackbarUtils.showWarning(
+          "No students in the institute yet. Add students first.");
+      return;
+    }
+    String? selectedId = students.first.id;
+    final rollCtrl = TextEditingController();
+    await showWebModal(
+      context: context,
+      title: "Enroll student",
+      saveLabel: "Enroll",
+      body: (ctx, setSt) => Column(
+        children: [
+          WebField(
+            label: "Student",
+            child: DropdownButtonFormField<String>(
+              initialValue: selectedId,
+              isExpanded: true,
+              decoration: _dec(t),
+              items: [
+                for (final s in students)
+                  DropdownMenuItem(
+                    value: s.id,
+                    child: Text(s.fullName, overflow: TextOverflow.ellipsis),
+                  ),
+              ],
+              onChanged: (v) => setSt(() => selectedId = v),
+            ),
+          ),
+          const SizedBox(height: 12),
+          WebField(
+            label: "Roll no (optional)",
+            child: TextField(
+                controller: rollCtrl, decoration: _dec(t, hint: "e.g. 12")),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+                "If the student is already in another class, they will be moved here.",
+                style: TextStyle(color: t.muted, fontSize: 10.5)),
+          ),
+        ],
+      ),
+      onSave: () async {
+        if (selectedId == null) {
+          SnackbarUtils.showWarning("Pick a student");
+          return false;
+        }
+        try {
+          await _academics.enroll(Enrollment(
+            id: "",
+            classId: widget.cls.id,
+            studentId: selectedId!,
+            rollNo: rollCtrl.text.trim().isEmpty ? null : rollCtrl.text.trim(),
+          ));
+          SnackbarUtils.showSuccess("Student enrolled in ${widget.cls.displayName}");
+          if (mounted) {
+            setState(
+                () => _studentsFuture = _academics.enrollments(widget.cls.id));
+          }
+          return true;
+        } catch (e) {
+          SnackbarUtils.showError(e.toString());
+          return false;
+        }
+      },
+    );
+  }
+
+  Future<void> _removeFromClass(Enrollment e) async {
+    final confirm = await DialogUtils.showConfirmation(
+      context: context,
+      title: "Remove student",
+      message:
+          "Remove ${e.studentName ?? "this student"} from ${widget.cls.displayName}? Their account is kept — they just won't belong to this class anymore.",
+      confirmText: "Remove",
+      isDestructive: true,
+    );
+    if (confirm != true) return;
+    try {
+      await _academics.unenroll(e.id);
+      SnackbarUtils.showSuccess("Removed from class");
+      if (mounted) {
+        setState(() => _studentsFuture = _academics.enrollments(widget.cls.id));
+      }
+    } catch (err) {
+      SnackbarUtils.showError(err.toString());
+    }
+  }
+
+  // ── Level 2: subject — one unified list of all assessments ──
   Widget _subjectDetail(WebTokens t) {
     final canManage = _canManage(_subject!);
     return WebPageBody(
@@ -366,7 +561,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
         WebPageHead(
           title: _subject!.name,
           subtitle: canManage
-              ? "You teach this subject — post assignments and quizzes below."
+              ? "You teach this subject — create and manage its assessments below."
               : "Teacher: ${_subject!.teacherName ?? "Unassigned"}",
         ),
         WebCard(
@@ -377,173 +572,72 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
                 child: SectionHead(
-                    title: "Assignments",
-                    subtitle: "Tap an assignment to review submissions",
-                    trailing: canManage
-                        ? WebButton(
-                            label: "Add assignment",
-                            icon: Iconsax.add,
-                            kind: WebBtnKind.primary,
-                            onTap: _createAssignment)
-                        : null),
+                  title: "Assessments",
+                  subtitle:
+                      "Assignment = homework & files · Quiz = auto-graded MCQs · Exam = manual marks",
+                  trailing: canManage ? _addMenu(t) : null,
+                ),
               ),
-              const SizedBox(height: 12),
-              FutureBuilder<List<Assignment>>(
-                future: _assignmentsFuture,
+              const SizedBox(height: 14),
+              FutureBuilder<List<_AssessmentRow>>(
+                future: _assessmentsFuture,
                 builder: (context, snap) {
                   if (snap.connectionState == ConnectionState.waiting) {
                     return _loading();
                   }
-                  final items = snap.data ?? [];
-                  if (items.isEmpty) {
-                    return _emptyMini(t, "No assignments posted yet.");
-                  }
-                  return WebTable(
-                    columns: const [
-                      WebCol("Title", flex: 4),
-                      WebCol("Due", flex: 2),
-                      WebCol("Max pts", flex: 2, right: true),
-                      WebCol("", flex: 1, right: true),
-                    ],
-                    rows: [
-                      for (final a in items)
-                        [
-                          Text(a.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(a.dueDate == null
-                              ? "—"
-                              : Formatters.date(a.dueDate!)),
-                          Text("${a.maxPoints}"),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TableAction(Iconsax.arrow_right_3,
-                                onTap: () => _openAssignment(a)),
-                          ),
-                        ],
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 17),
-        WebCard(
-          clipBehavior: Clip.hardEdge,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
-                child: SectionHead(
-                    title: "Quizzes",
-                    subtitle: "Tap a quiz to see questions and results",
-                    trailing: canManage
-                        ? WebButton(
-                            label: "Add quiz",
-                            icon: Iconsax.add,
-                            kind: WebBtnKind.primary,
-                            onTap: _createQuiz)
-                        : null),
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<List<Quiz>>(
-                future: _quizzesFuture,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return _loading();
-                  }
-                  final items = snap.data ?? [];
-                  if (items.isEmpty) {
-                    return _emptyMini(t, "No quizzes created yet.");
-                  }
-                  return WebTable(
-                    columns: const [
-                      WebCol("Title", flex: 4),
-                      WebCol("Questions", flex: 2, right: true),
-                      WebCol("", flex: 1, right: true),
-                    ],
-                    rows: [
-                      for (final q in items)
-                        [
-                          Text(q.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          Text("${q.questionCount}"),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TableAction(Iconsax.arrow_right_3,
-                                onTap: () => _openQuiz(q)),
-                          ),
-                        ],
-                    ],
-                  );
-                },
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 17),
-        WebCard(
-          clipBehavior: Clip.hardEdge,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
-                child: SectionHead(
-                    title: "Custom Tests",
-                    subtitle:
-                        "Exams, midterms, practicals — manual result entry",
-                    trailing: canManage
-                        ? WebButton(
-                            label: "Add test",
-                            icon: Iconsax.add,
-                            kind: WebBtnKind.primary,
-                            onTap: _createCustomTest)
-                        : null),
-              ),
-              const SizedBox(height: 12),
-              FutureBuilder<List<CustomTest>>(
-                future: _customTestsFuture,
-                builder: (context, snap) {
-                  if (snap.connectionState == ConnectionState.waiting) {
-                    return _loading();
-                  }
-                  final items = snap.data ?? [];
-                  if (items.isEmpty) {
-                    return _emptyMini(t, "No custom tests created yet.");
-                  }
-                  return WebTable(
-                    columns: const [
-                      WebCol("Title", flex: 4),
-                      WebCol("Date", flex: 2),
-                      WebCol("Max marks", flex: 2, right: true),
-                      WebCol("", flex: 1, right: true),
-                    ],
-                    rows: [
-                      for (final ct in items)
-                        [
-                          Text(ct.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style:
-                                  const TextStyle(fontWeight: FontWeight.w700)),
-                          Text(ct.testDate == null
-                              ? "—"
-                              : Formatters.date(ct.testDate!)),
-                          Text("${ct.maxMarks}"),
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TableAction(Iconsax.arrow_right_3,
-                                onTap: () => _openCustomTest(ct)),
-                          ),
-                        ],
+                  final all = snap.data ?? [];
+                  final filtered = _filter == null
+                      ? all
+                      : all.where((r) => r.type == _filter).toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 17),
+                        child: _typeFilters(t, all),
+                      ),
+                      const SizedBox(height: 14),
+                      if (all.isEmpty)
+                        _emptyMini(
+                            t,
+                            canManage
+                                ? "No assessments yet. Use \u201cNew\u201d to add an assignment, quiz or exam."
+                                : "No assessments have been posted yet.")
+                      else if (filtered.isEmpty)
+                        _emptyMini(t,
+                            "No ${_typeLabel(_filter!).toLowerCase()}s in this subject yet.")
+                      else
+                        WebTable(
+                          columns: const [
+                            WebCol("Assessment", flex: 4),
+                            WebCol("Type", flex: 2),
+                            WebCol("Details", flex: 4),
+                            WebCol("", flex: 1, right: true),
+                          ],
+                          rows: [
+                            for (final r in filtered)
+                              [
+                                Text(r.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w700)),
+                                StatusChip(_typeLabel(r.type),
+                                    tone: _typeTone(r.type)),
+                                Text(r.meta,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                        color: t.muted, fontSize: 11)),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: TableAction(Iconsax.arrow_right_3,
+                                      onTap: () => _openRow(r)),
+                                ),
+                              ],
+                          ],
+                        ),
+                      const SizedBox(height: 4),
                     ],
                   );
                 },
@@ -552,6 +646,143 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
           ),
         ),
       ],
+    );
+  }
+
+  void _openRow(_AssessmentRow r) {
+    switch (r.type) {
+      case _AsmtType.assignment:
+        _openAssignment(r.assignment!);
+      case _AsmtType.quiz:
+        _openQuiz(r.quiz!);
+      case _AsmtType.exam:
+        _openCustomTest(r.customTest!);
+    }
+  }
+
+  String _typeLabel(_AsmtType t) => switch (t) {
+        _AsmtType.assignment => "Assignment",
+        _AsmtType.quiz => "Quiz",
+        _AsmtType.exam => "Exam",
+      };
+
+  Tone _typeTone(_AsmtType t) => switch (t) {
+        _AsmtType.assignment => Tone.primary,
+        _AsmtType.quiz => Tone.info,
+        _AsmtType.exam => Tone.warning,
+      };
+
+  Widget _typeFilters(WebTokens t, List<_AssessmentRow> all) {
+    int countOf(_AsmtType? ty) =>
+        ty == null ? all.length : all.where((r) => r.type == ty).length;
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        _filterPill(t, "All", null, countOf(null)),
+        _filterPill(
+            t, "Assignments", _AsmtType.assignment, countOf(_AsmtType.assignment)),
+        _filterPill(t, "Quizzes", _AsmtType.quiz, countOf(_AsmtType.quiz)),
+        _filterPill(t, "Exams", _AsmtType.exam, countOf(_AsmtType.exam)),
+      ],
+    );
+  }
+
+  Widget _filterPill(WebTokens t, String label, _AsmtType? ty, int count) {
+    final selected = _filter == ty;
+    return Material(
+      color: selected ? t.primary : t.panel2,
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        onTap: () => setState(() => _filter = ty),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: selected ? t.primary : t.line),
+          ),
+          child: Text("$label ($count)",
+              style: TextStyle(
+                  color: selected ? Colors.white : t.muted,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ),
+    );
+  }
+
+  Widget _addMenu(WebTokens t) {
+    return PopupMenuButton<_AsmtType>(
+      tooltip: "Add assessment",
+      offset: const Offset(0, 44),
+      color: t.panel,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: t.line)),
+      onSelected: (ty) {
+        switch (ty) {
+          case _AsmtType.assignment:
+            _createAssignment();
+          case _AsmtType.quiz:
+            _createQuiz();
+          case _AsmtType.exam:
+            _createCustomTest();
+        }
+      },
+      itemBuilder: (_) => [
+        _addMenuItem(t, _AsmtType.assignment, Iconsax.document_text,
+            "Assignment", "Homework & file submissions"),
+        _addMenuItem(t, _AsmtType.quiz, Iconsax.task_square, "Quiz",
+            "Auto-graded multiple choice"),
+        _addMenuItem(t, _AsmtType.exam, Iconsax.clipboard_text, "Exam / Test",
+            "Manual mark sheet"),
+      ],
+      child: Container(
+        height: 39,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+            color: t.primary, borderRadius: BorderRadius.circular(11)),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Iconsax.add, size: 15, color: Colors.white),
+            SizedBox(width: 8),
+            Text("New",
+                style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white)),
+            SizedBox(width: 4),
+            Icon(Iconsax.arrow_down_1, size: 13, color: Colors.white),
+          ],
+        ),
+      ),
+    );
+  }
+
+  PopupMenuItem<_AsmtType> _addMenuItem(
+      WebTokens t, _AsmtType ty, IconData icon, String title, String sub) {
+    return PopupMenuItem<_AsmtType>(
+      value: ty,
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: t.primary),
+          const SizedBox(width: 10),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title,
+                  style: TextStyle(
+                      color: t.ink,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700)),
+              Text(sub, style: TextStyle(color: t.muted, fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -766,12 +997,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
       academics: _academics,
       canManage: _subject != null && _canManage(_subject!),
       onRefreshTests: () {
-        if (_subject != null && mounted) {
-          setState(() {
-            _customTestsFuture =
-                _assessment.customTestsForSubject(_subject!.id);
-          });
-        }
+        if (_subject != null && mounted) setState(_refreshAssessments);
       },
       onEdit: () => _editCustomTest(ct),
       onDelete: () => _deleteCustomTest(ct),
@@ -856,11 +1082,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
             createdBy: _uid,
           ));
           SnackbarUtils.showSuccess("Test created");
-          if (mounted) {
-            setState(() {
-              _customTestsFuture = _assessment.customTestsForSubject(s.id);
-            });
-          }
+          if (mounted) setState(_refreshAssessments);
           return true;
         } catch (e) {
           SnackbarUtils.showError(e.toString());
@@ -950,10 +1172,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
           if (mounted) {
             setState(() {
               _customTest = updated;
-              if (_subject != null) {
-                _customTestsFuture =
-                    _assessment.customTestsForSubject(_subject!.id);
-              }
+              _refreshAssessments();
             });
           }
           return true;
@@ -982,10 +1201,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
       if (mounted) {
         setState(() {
           _customTest = null;
-          if (_subject != null) {
-            _customTestsFuture =
-                _assessment.customTestsForSubject(_subject!.id);
-          }
+          _refreshAssessments();
         });
       }
     } catch (e) {
@@ -1134,10 +1350,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
             createdBy: _uid,
           ));
           SnackbarUtils.showSuccess("Assignment created");
-          if (mounted) {
-            setState(() =>
-                _assignmentsFuture = _assessment.assignmentsForSubject(s.id));
-          }
+          if (mounted) setState(_refreshAssessments);
           return true;
         } catch (e) {
           SnackbarUtils.showError(e.toString());
@@ -1195,9 +1408,7 @@ class _WebClassActivitiesScreenState extends State<WebClassActivitiesScreen> {
             createdBy: _uid,
           ));
           SnackbarUtils.showSuccess("Quiz created");
-          if (mounted) {
-            setState(() => _quizzesFuture = _assessment.quizzes(s.id));
-          }
+          if (mounted) setState(_refreshAssessments);
           return true;
         } catch (e) {
           SnackbarUtils.showError(e.toString());
@@ -1827,6 +2038,272 @@ class _CustomTestMarkSheetState extends State<_CustomTestMarkSheet> {
               : StatusChip("Pending", tone: Tone.warning),
         ),
       ],
+    );
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// Class attendance — mark present / late / absent for a date
+// ══════════════════════════════════════════════════════════════
+
+class _ClassAttendance extends StatefulWidget {
+  final SchoolClass cls;
+  final AcademicsRepository academics;
+  final AttendanceRepository attendance;
+  final bool canMark;
+  final String? markedBy;
+
+  const _ClassAttendance({
+    required this.cls,
+    required this.academics,
+    required this.attendance,
+    required this.canMark,
+    this.markedBy,
+  });
+
+  @override
+  State<_ClassAttendance> createState() => _ClassAttendanceState();
+}
+
+class _ClassAttendanceState extends State<_ClassAttendance> {
+  DateTime _date = DateTime.now();
+  List<Enrollment> _students = [];
+  final Map<String, AttendanceStatus> _marks = {};
+  bool _loading = true;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final enr = await widget.academics.enrollments(widget.cls.id);
+      final existing =
+          await widget.attendance.forClassOnDate(widget.cls.id, _date);
+      final map = {for (final r in existing) r.studentId: r.status};
+      if (!mounted) return;
+      setState(() {
+        _students = enr;
+        _marks
+          ..clear()
+          ..addEntries(enr.map((e) => MapEntry(
+              e.studentId, map[e.studentId] ?? AttendanceStatus.present)));
+        _loading = false;
+      });
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        SnackbarUtils.showError(e.toString());
+      }
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 1)),
+      initialDate: _date,
+    );
+    if (picked != null) {
+      setState(() => _date = picked);
+      await _load();
+    }
+  }
+
+  Future<void> _save() async {
+    if (_students.isEmpty) return;
+    setState(() => _saving = true);
+    try {
+      final records = _students
+          .map((e) => AttendanceRecord(
+                id: "",
+                classId: widget.cls.id,
+                studentId: e.studentId,
+                date: _date,
+                status: _marks[e.studentId] ?? AttendanceStatus.present,
+                markedBy: widget.markedBy,
+              ))
+          .toList();
+      await widget.attendance.saveBatch(records);
+      SnackbarUtils.showSuccess("Attendance saved");
+    } catch (e) {
+      SnackbarUtils.showError(e.toString());
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  int _count(AttendanceStatus s) => _marks.values.where((v) => v == s).length;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = WebTokens.of(context);
+    return WebPageBody(
+      children: [
+        WebPageHead(
+          title: "Attendance",
+          subtitle: "${widget.cls.displayName}  •  ${Formatters.date(_date)}",
+          actions: [
+            WebButton(
+                label: "Change date",
+                icon: Iconsax.calendar_1,
+                onTap: _pickDate),
+            if (widget.canMark) ...[
+              const SizedBox(width: 8),
+              WebButton(
+                  label: _saving ? "Saving…" : "Save attendance",
+                  icon: Iconsax.tick_circle,
+                  kind: WebBtnKind.primary,
+                  onTap: _saving ? null : _save),
+            ],
+          ],
+        ),
+        WebGrid(
+          columns: MediaQuery.of(context).size.width < 1180 ? 2 : 4,
+          childAspectRatio: 3.1,
+          children: [
+            _summary(t, Iconsax.tick_circle, "Present",
+                "${_count(AttendanceStatus.present)}", Tone.success),
+            _summary(t, Iconsax.clock, "Late", "${_count(AttendanceStatus.late)}",
+                Tone.warning),
+            _summary(t, Iconsax.close_circle, "Absent",
+                "${_count(AttendanceStatus.absent)}", Tone.danger),
+            _summary(t, Iconsax.people, "Students", "${_students.length}",
+                Tone.primary),
+          ],
+        ),
+        const SizedBox(height: 17),
+        WebCard(
+          clipBehavior: Clip.hardEdge,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
+                child: SectionHead(
+                  title: "Mark attendance",
+                  subtitle: widget.canMark
+                      ? "Tap a status for each student, then Save."
+                      : "Attendance overview",
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (_loading)
+                const Padding(
+                    padding: EdgeInsets.all(30),
+                    child: Center(child: CircularProgressIndicator()))
+              else if (_students.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(17, 4, 17, 20),
+                  child: Text(
+                      "No students enrolled in this class yet. Enroll students first.",
+                      style: TextStyle(color: t.muted, fontSize: 11)),
+                )
+              else
+                WebTable(
+                  columns: const [
+                    WebCol("Student", flex: 4),
+                    WebCol("Roll", flex: 2),
+                    WebCol("Status", flex: 5),
+                  ],
+                  rows: [
+                    for (final e in _students)
+                      [
+                        Row(children: [
+                          Monogram(Formatters.initials(e.studentName)),
+                          const SizedBox(width: 9),
+                          Flexible(
+                              child: Text(e.studentName ?? "Student",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w700))),
+                        ]),
+                        Text(e.rollNo ?? "—"),
+                        _markGroup(t, e.studentId),
+                      ],
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _markGroup(WebTokens t, String studentId) {
+    final current = _marks[studentId] ?? AttendanceStatus.present;
+    return Wrap(
+      spacing: 5,
+      children: [
+        _markBtn(t, "Present", AttendanceStatus.present, current, studentId,
+            Tone.success),
+        _markBtn(t, "Absent", AttendanceStatus.absent, current, studentId,
+            Tone.danger),
+        _markBtn(
+            t, "Late", AttendanceStatus.late, current, studentId, Tone.warning),
+        _markBtn(t, "Excused", AttendanceStatus.excused, current, studentId,
+            Tone.info),
+      ],
+    );
+  }
+
+  Widget _markBtn(WebTokens t, String label, AttendanceStatus s,
+      AttendanceStatus current, String studentId, Tone tone) {
+    final active = s == current;
+    return InkWell(
+      onTap: widget.canMark
+          ? () => setState(() => _marks[studentId] = s)
+          : null,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? tone.bg(t) : t.panel,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: active ? Colors.transparent : t.line),
+        ),
+        child: Text(label,
+            style: TextStyle(
+                fontSize: 9.5,
+                fontWeight: FontWeight.w800,
+                color: active ? tone.fg(t) : t.muted)),
+      ),
+    );
+  }
+
+  Widget _summary(
+      WebTokens t, IconData icon, String label, String value, Tone tone) {
+    return WebCard(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          Container(
+            width: 39,
+            height: 39,
+            decoration: BoxDecoration(
+                color: tone.bg(t), borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, size: 20, color: tone.fg(t)),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(label, style: TextStyle(color: t.muted, fontSize: 10)),
+              const SizedBox(height: 2),
+              Text(value,
+                  style: TextStyle(
+                      color: t.ink, fontSize: 16, fontWeight: FontWeight.w800)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

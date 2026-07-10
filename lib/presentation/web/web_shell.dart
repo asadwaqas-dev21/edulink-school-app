@@ -113,8 +113,8 @@ class _WebShellState extends State<WebShell> {
         return r.canManagePeople;
       case 2: // Academics / Children
         return r.isPrincipal || r.canTeach || r.isStudent || r.canViewChildren;
-      case 3: // Attendance
-        return r.canMarkAttendance;
+      case 3: // Attendance — moved into the class room (Academics)
+        return false;
       case 5: // Finance / Fees
         return r.canManageFinance || r.canPayFees;
       case 7: // Reports
@@ -247,7 +247,7 @@ class _WebShellState extends State<WebShell> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _navSection(t, "Overview", [0, 1, 2]),
-                  _navSection(t, "Operations", [3, 4, 5]),
+                  _navSection(t, "Operations", [4, 5]),
                   _navSection(t, "Insights", [7, 9]),
                   _navSection(t, "Engagement", [6, 8]),
                 ],

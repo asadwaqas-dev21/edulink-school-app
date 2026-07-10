@@ -99,10 +99,24 @@ class AcademicsRepository {
     return (data as List).map((e) => Enrollment.fromMap(e)).toList();
   }
 
+  /// The single class a student currently belongs to, if any.
+  Future<Enrollment?> enrollmentForStudent(String studentId) async {
+    final data = await _client
+        .from(SupabaseConfig.tEnrollments)
+        .select("*, class:class_id(name)")
+        .eq("student_id", studentId)
+        .maybeSingle();
+    return data == null ? null : Enrollment.fromMap(data);
+  }
+
+  /// Enrolls a student into a class. A student can only belong to one class, so
+  /// this upserts on `student_id`: enrolling a student who is already in another
+  /// class simply moves them here (requires the `enrollments_student_unique`
+  /// constraint in the database).
   Future<Enrollment> enroll(Enrollment e) async {
     final data = await _client
         .from(SupabaseConfig.tEnrollments)
-        .insert(e.toMap())
+        .upsert(e.toMap(), onConflict: "student_id")
         .select("*, student:student_id(full_name,email), class:class_id(name)")
         .single();
     return Enrollment.fromMap(data);
