@@ -233,5 +233,6 @@ flutter run -d chrome    # web
   `Formatters.money` — change the default there to switch currency app-wide.
 - **Fee slips**: Printing/exporting to PDF uses the `pdf` + `printing` packages
   (`lib/core/services/fee_slip_service.dart`).
-#   e d u l i n k - s c h o o l - a p p  
+#   e d u l i n k - s c h o o l - a p p 
+ 
  

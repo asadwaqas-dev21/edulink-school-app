@@ -1,5 +1,6 @@
 import "package:get/get.dart";
 import "package:edulink/app/session/session_controller.dart";
+import "package:edulink/core/enums/user_role.dart";
 import "package:edulink/data/repositories/academics_repository.dart";
 import "package:edulink/data/repositories/communication_repository.dart";
 import "package:edulink/data/repositories/finance_repository.dart";
@@ -10,6 +11,7 @@ import "package:edulink/domain/entities/expense.dart";
 import "package:edulink/domain/entities/institute.dart";
 import "package:edulink/domain/entities/invoice.dart";
 import "package:edulink/domain/entities/invoice_item.dart";
+import "package:edulink/domain/entities/payment.dart";
 import "package:edulink/domain/entities/profile.dart";
 import "package:edulink/domain/entities/school_class.dart";
 
@@ -112,6 +114,28 @@ class WebDashboardController extends GetxController {
     await load();
   }
 
+  /// Records a payment against an invoice (mirrors the mobile pay flow) and
+  /// refreshes the dashboard so balances/status update.
+  Future<void> recordPayment({
+    required Invoice invoice,
+    required num amount,
+    String? reference,
+    required String method,
+  }) async {
+    await _finance.recordPayment(
+      Payment(
+        id: "",
+        invoiceId: invoice.id,
+        amount: amount,
+        method: method,
+        reference: reference,
+        recordedBy: _session.userId,
+      ),
+      invoice,
+    );
+    await load();
+  }
+
   Future<void> postAnnouncement(Announcement a) async {
     await _comm.post(a);
     await load();
@@ -123,6 +147,36 @@ class WebDashboardController extends GetxController {
       throw "No account found for $email. Ask them to register first.";
     }
     await _academics.assignInstitute(profile.id, instituteId);
+    await load();
+  }
+
+  /// Manually creates a new member (account + role-specific details) and
+  /// refreshes the dashboard data.
+  Future<void> createMember({
+    required String email,
+    required String password,
+    required String fullName,
+    required UserRole role,
+    String? phone,
+    String? enrollClassId,
+    String? rollNo,
+    String? classTeacherOfId,
+    String? childStudentId,
+    String? relation,
+  }) async {
+    await _academics.createMember(
+      email: email,
+      password: password,
+      fullName: fullName,
+      role: role,
+      instituteId: instituteId,
+      phone: phone,
+      enrollClassId: enrollClassId,
+      rollNo: rollNo,
+      classTeacherOfId: classTeacherOfId,
+      childStudentId: childStudentId,
+      relation: relation,
+    );
     await load();
   }
 }

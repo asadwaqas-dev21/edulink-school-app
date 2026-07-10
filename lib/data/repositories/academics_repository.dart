@@ -1,5 +1,8 @@
+import "package:get/get.dart";
 import "package:supabase_flutter/supabase_flutter.dart";
 import "package:edulink/core/config/supabase_config.dart";
+import "package:edulink/core/enums/user_role.dart";
+import "package:edulink/data/repositories/auth_repository.dart";
 import "package:edulink/domain/entities/enrollment.dart";
 import "package:edulink/domain/entities/parent_link.dart";
 import "package:edulink/domain/entities/profile.dart";
@@ -157,6 +160,117 @@ class AcademicsRepository {
         .eq("email", email.trim().toLowerCase())
         .maybeSingle();
     return data == null ? null : Profile.fromMap(data);
+  }
+
+  Future<Profile?> findById(String id) async {
+    final data = await _client
+        .from(SupabaseConfig.tProfiles)
+        .select()
+        .eq("id", id)
+        .maybeSingle();
+    return data == null ? null : Profile.fromMap(data);
+  }
+
+  /// Sets a member's institute, role, name and phone. The profile row is
+  /// created by a DB trigger right after signup, so we retry briefly in case
+  /// it has not materialised yet.
+  Future<void> updateMemberProfile({
+    required String userId,
+    required String instituteId,
+    required UserRole role,
+    required String fullName,
+    String? phone,
+  }) async {
+    for (var attempt = 0; attempt < 6; attempt++) {
+      final row = await _client
+          .from(SupabaseConfig.tProfiles)
+          .select("id")
+          .eq("id", userId)
+          .maybeSingle();
+      if (row != null) break;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    await _client.from(SupabaseConfig.tProfiles).update({
+      "institute_id": instituteId,
+      "role": role.key,
+      "full_name": fullName.trim(),
+      if (phone != null && phone.trim().isNotEmpty) "phone": phone.trim(),
+    }).eq("id", userId);
+  }
+
+  Future<void> assignClassTeacher(String classId, String teacherId) async {
+    await _client
+        .from(SupabaseConfig.tClasses)
+        .update({"class_teacher_id": teacherId}).eq("id", classId);
+  }
+
+  /// Creates a member account and wires up their role-specific details in one
+  /// call: students can be enrolled into a class (with a roll number), teachers
+  /// can be set as the class teacher of a class, and parents can be linked to a
+  /// child. Returns the freshly-created [Profile].
+  Future<Profile> createMember({
+    required String email,
+    required String password,
+    required String fullName,
+    required UserRole role,
+    required String instituteId,
+    String? phone,
+    String? enrollClassId,
+    String? rollNo,
+    String? classTeacherOfId,
+    String? childStudentId,
+    String? relation,
+  }) async {
+    final auth = Get.find<AuthRepository>();
+    final userId = await auth.createMemberAccount(
+      email: email,
+      password: password,
+      fullName: fullName,
+      role: role,
+    );
+
+    await updateMemberProfile(
+      userId: userId,
+      instituteId: instituteId,
+      role: role,
+      fullName: fullName,
+      phone: phone,
+    );
+
+    if (role.isStudent && enrollClassId != null && enrollClassId.isNotEmpty) {
+      await enroll(Enrollment(
+        id: "",
+        classId: enrollClassId,
+        studentId: userId,
+        rollNo: (rollNo == null || rollNo.trim().isEmpty) ? null : rollNo.trim(),
+      ));
+    }
+
+    if (role.isTeacher &&
+        classTeacherOfId != null &&
+        classTeacherOfId.isNotEmpty) {
+      await assignClassTeacher(classTeacherOfId, userId);
+    }
+
+    if (role.isParent && childStudentId != null && childStudentId.isNotEmpty) {
+      await linkParent(ParentLink(
+        id: "",
+        parentId: userId,
+        studentId: childStudentId,
+        relation:
+            (relation == null || relation.trim().isEmpty) ? null : relation.trim(),
+      ));
+    }
+
+    return await findById(userId) ??
+        Profile(
+          id: userId,
+          email: email.trim().toLowerCase(),
+          fullName: fullName.trim(),
+          role: role,
+          instituteId: instituteId,
+          phone: phone,
+        );
   }
 
   // ── Parent links ──

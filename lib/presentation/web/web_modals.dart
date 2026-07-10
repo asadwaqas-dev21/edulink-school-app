@@ -2,8 +2,10 @@ import "package:flutter/material.dart";
 import "package:get/get.dart";
 import "package:edulink/app/session/session_controller.dart";
 import "package:edulink/core/enums/status_enums.dart";
+import "package:edulink/core/enums/user_role.dart";
 import "package:edulink/core/utils/formatters.dart";
 import "package:edulink/core/utils/snackbar_utils.dart";
+import "package:edulink/core/utils/validators.dart";
 import "package:edulink/domain/entities/announcement.dart";
 import "package:edulink/domain/entities/expense.dart";
 import "package:edulink/domain/entities/invoice.dart";
@@ -470,37 +472,87 @@ Future<void> showCreateInvoiceModal(BuildContext context) async {
   );
 }
 
-// ── Add member ──
-Future<void> showAddMemberModal(BuildContext context) async {
+// ── Record payment / Pay fee ──
+Future<void> showRecordPaymentModal(
+    BuildContext context, Invoice invoice) async {
   final t = WebTokens.of(context);
-  final emailCtrl = TextEditingController();
+  final role = _session.role;
+  final isPay = role.isParent || role.isStudent;
+  final amountCtrl = TextEditingController(text: invoice.balance.toString());
+  final refCtrl = TextEditingController();
 
   await showWebModal(
     context: context,
-    title: "Add institute member",
-    saveLabel: "Add member",
+    title: isPay ? "Pay fee" : "Record payment",
+    saveLabel: isPay ? "Pay now" : "Record payment",
     body: (ctx, setState) => Column(
       children: [
-        WebField(
-            label: "Account email",
-            child: TextField(
-                controller: emailCtrl,
-                decoration: _dec(t, hint: "member@email.com"))),
-        const SizedBox(height: 12),
-        Text(
-          "The person must already have an Edulink account. They will be linked to this institute.",
-          style: TextStyle(color: t.muted, fontSize: 10.5),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+              color: t.primarySoft, borderRadius: BorderRadius.circular(12)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(invoice.studentName ?? invoice.title,
+                  style: TextStyle(
+                      color: t.ink,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800)),
+              const SizedBox(height: 3),
+              Text(invoice.title,
+                  style: TextStyle(color: t.muted, fontSize: 10.5)),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text("Balance due",
+                      style: TextStyle(color: t.muted, fontSize: 11)),
+                  Text(Formatters.money(invoice.balance),
+                      style: TextStyle(
+                          color: t.primary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w800)),
+                ],
+              ),
+            ],
+          ),
         ),
+        const SizedBox(height: 14),
+        WebField(
+            label: "Amount (PKR)",
+            child: TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: _dec(t, hint: "0"))),
+        const SizedBox(height: 12),
+        WebField(
+            label: isPay ? "Card / reference (optional)" : "Reference (optional)",
+            child: TextField(
+                controller: refCtrl,
+                decoration: _dec(t, hint: "e.g. transaction id"))),
       ],
     ),
     onSave: () async {
-      if (emailCtrl.text.trim().isEmpty) {
-        SnackbarUtils.showWarning("Enter an email");
+      final amount = num.tryParse(amountCtrl.text.trim());
+      if (amount == null || amount <= 0) {
+        SnackbarUtils.showWarning("Enter a valid amount");
+        return false;
+      }
+      if (amount > invoice.balance) {
+        SnackbarUtils.showWarning("Amount cannot exceed the balance due");
         return false;
       }
       try {
-        await _c.addMember(emailCtrl.text.trim(), _c.instituteId);
-        SnackbarUtils.showSuccess("Member added");
+        await _c.recordPayment(
+          invoice: invoice,
+          amount: amount,
+          reference: refCtrl.text.trim().isEmpty ? null : refCtrl.text.trim(),
+          method: isPay ? "online" : "cash",
+        );
+        SnackbarUtils.showSuccess(
+            isPay ? "Payment successful" : "Payment recorded");
         return true;
       } catch (e) {
         SnackbarUtils.showError(e.toString());
@@ -508,6 +560,220 @@ Future<void> showAddMemberModal(BuildContext context) async {
       }
     },
   );
+}
+
+// ── Add member ──
+Future<void> showAddMemberModal(BuildContext context, {UserRole? initialRole}) async {
+  final t = WebTokens.of(context);
+  final nameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final passwordCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final rollCtrl = TextEditingController();
+  final relationCtrl = TextEditingController();
+
+  var role = initialRole ?? UserRole.student;
+  String? enrollClassId; // student
+  String? classTeacherOfId; // teacher
+  String? childStudentId; // parent
+
+  // Roles a principal can create manually.
+  const roles = [UserRole.teacher, UserRole.student, UserRole.parent];
+
+  await showWebModal(
+    context: context,
+    title: "Add institute member",
+    saveLabel: "Create member",
+    body: (ctx, setState) => Column(
+      children: [
+        WebField(
+          label: "Role",
+          child: DropdownButtonFormField<UserRole>(
+            initialValue: roles.contains(role) ? role : UserRole.student,
+            isExpanded: true,
+            decoration: _dec(t),
+            items: roles
+                .map((r) =>
+                    DropdownMenuItem(value: r, child: Text(r.label)))
+                .toList(),
+            onChanged: (v) => setState(() => role = v!),
+          ),
+        ),
+        const SizedBox(height: 12),
+        WebField(
+            label: "Full name",
+            child: TextField(
+                controller: nameCtrl,
+                decoration: _dec(t, hint: "e.g. Ayesha Khan"))),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: WebField(
+                  label: "Email",
+                  child: TextField(
+                      controller: emailCtrl,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: _dec(t, hint: "member@email.com"))),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: WebField(
+                  label: "Password",
+                  child: TextField(
+                      controller: passwordCtrl,
+                      obscureText: true,
+                      decoration: _dec(t, hint: "Min. 6 characters"))),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        WebField(
+            label: "Phone (optional)",
+            child: TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: _dec(t, hint: "03xx-xxxxxxx"))),
+        const SizedBox(height: 12),
+        ..._roleFields(
+          t,
+          role: role,
+          rollCtrl: rollCtrl,
+          relationCtrl: relationCtrl,
+          enrollClassId: enrollClassId,
+          classTeacherOfId: classTeacherOfId,
+          childStudentId: childStudentId,
+          onEnrollClass: (v) => setState(() => enrollClassId = v),
+          onClassTeacherOf: (v) => setState(() => classTeacherOfId = v),
+          onChildStudent: (v) => setState(() => childStudentId = v),
+        ),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            "A new Edulink account is created with these credentials. Share them with the member so they can sign in.",
+            style: TextStyle(color: t.muted, fontSize: 10.5),
+          ),
+        ),
+      ],
+    ),
+    onSave: () async {
+      if (nameCtrl.text.trim().isEmpty) {
+        SnackbarUtils.showWarning("Enter the member's full name");
+        return false;
+      }
+      if (Validators.email(emailCtrl.text) != null) {
+        SnackbarUtils.showWarning("Enter a valid email");
+        return false;
+      }
+      if (Validators.password(passwordCtrl.text) != null) {
+        SnackbarUtils.showWarning("Password must be at least 6 characters");
+        return false;
+      }
+      try {
+        await _c.createMember(
+          email: emailCtrl.text.trim(),
+          password: passwordCtrl.text,
+          fullName: nameCtrl.text.trim(),
+          role: role,
+          phone: phoneCtrl.text.trim(),
+          enrollClassId: role.isStudent ? enrollClassId : null,
+          rollNo: role.isStudent ? rollCtrl.text.trim() : null,
+          classTeacherOfId: role.isTeacher ? classTeacherOfId : null,
+          childStudentId: role.isParent ? childStudentId : null,
+          relation: role.isParent ? relationCtrl.text.trim() : null,
+        );
+        SnackbarUtils.showSuccess("${nameCtrl.text.trim()} added as ${role.label}");
+        return true;
+      } catch (e) {
+        SnackbarUtils.showError(e.toString());
+        return false;
+      }
+    },
+  );
+}
+
+List<Widget> _roleFields(
+  WebTokens t, {
+  required UserRole role,
+  required TextEditingController rollCtrl,
+  required TextEditingController relationCtrl,
+  required String? enrollClassId,
+  required String? classTeacherOfId,
+  required String? childStudentId,
+  required ValueChanged<String?> onEnrollClass,
+  required ValueChanged<String?> onClassTeacherOf,
+  required ValueChanged<String?> onChildStudent,
+}) {
+  if (role.isStudent) {
+    return [
+      Row(
+        children: [
+          Expanded(
+            child: WebField(
+              label: "Enroll in class (optional)",
+              child: DropdownButtonFormField<String>(
+                initialValue: enrollClassId,
+                isExpanded: true,
+                decoration: _dec(t, hint: "Select class"),
+                items: _c.classes
+                    .map((cls) => DropdownMenuItem(
+                        value: cls.id, child: Text(cls.displayName)))
+                    .toList(),
+                onChanged: onEnrollClass,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: WebField(
+                label: "Roll no (optional)",
+                child: TextField(
+                    controller: rollCtrl, decoration: _dec(t, hint: "e.g. 12"))),
+          ),
+        ],
+      ),
+    ];
+  }
+  if (role.isTeacher) {
+    return [
+      WebField(
+        label: "Class teacher of (optional)",
+        child: DropdownButtonFormField<String>(
+          initialValue: classTeacherOfId,
+          isExpanded: true,
+          decoration: _dec(t, hint: "Assign a class"),
+          items: _c.classes
+              .map((cls) => DropdownMenuItem(
+                  value: cls.id, child: Text(cls.displayName)))
+              .toList(),
+          onChanged: onClassTeacherOf,
+        ),
+      ),
+    ];
+  }
+  // Parent
+  return [
+    WebField(
+      label: "Link to child (optional)",
+      child: DropdownButtonFormField<String>(
+        initialValue: childStudentId,
+        isExpanded: true,
+        decoration: _dec(t, hint: "Select student"),
+        items: _c.students
+            .map((s) =>
+                DropdownMenuItem(value: s.id, child: Text(s.fullName)))
+            .toList(),
+        onChanged: onChildStudent,
+      ),
+    ),
+    const SizedBox(height: 12),
+    WebField(
+        label: "Relation (optional)",
+        child: TextField(
+            controller: relationCtrl,
+            decoration: _dec(t, hint: "e.g. Father, Mother"))),
+  ];
 }
 
 // ── Announcement ──

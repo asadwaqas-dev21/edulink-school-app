@@ -195,8 +195,6 @@ class _WebShellState extends State<WebShell> {
               ],
             ),
           ),
-          Obx(() => _instituteCard(t)),
-          const SizedBox(height: 16),
           Expanded(
             child: SingleChildScrollView(
               child: Column(
@@ -211,50 +209,6 @@ class _WebShellState extends State<WebShell> {
           ),
           Divider(color: t.line, height: 24),
           _profileMini(t),
-        ],
-      ),
-    );
-  }
-
-  Widget _instituteCard(WebTokens t) {
-    final name = _c.institute.value?.name ?? "Your Institute";
-    final type = _c.institute.value?.type.label ?? "Institute";
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-          color: t.panel2,
-          border: Border.all(color: t.line),
-          borderRadius: BorderRadius.circular(14)),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-                color: t.primarySoft, borderRadius: BorderRadius.circular(10)),
-            child: Text(Formatters.initials(name),
-                style: TextStyle(
-                    color: t.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        color: t.ink,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700)),
-                Text(type, style: TextStyle(color: t.muted, fontSize: 11)),
-              ],
-            ),
-          ),
         ],
       ),
     );

@@ -650,7 +650,7 @@ class WebFinancePage extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(17, 17, 17, 0),
             child: SectionHead(
-                title: "Recent Fee Slips", subtitle: "Invoices & status"),
+                title: "Fee Slips", subtitle: "Invoices, status & payments"),
           ),
           const SizedBox(height: 12),
           if (c.invoices.isEmpty)
@@ -667,9 +667,10 @@ class WebFinancePage extends StatelessWidget {
                 WebCol("Amount", flex: 2, right: true),
                 WebCol("Paid", flex: 2, right: true),
                 WebCol("Status", flex: 2, right: true),
+                WebCol("", flex: 3, right: true),
               ],
               rows: [
-                for (final i in c.invoices.take(6))
+                for (final i in c.invoices)
                   [
                     Text(i.studentName ?? i.title,
                         maxLines: 1, overflow: TextOverflow.ellipsis),
@@ -679,6 +680,23 @@ class WebFinancePage extends StatelessWidget {
                         alignment: Alignment.centerRight,
                         child: StatusChip(i.status.label,
                             tone: _invoiceTone(i.status))),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: i.balance > 0
+                          ? WebButton(
+                              label: _canPayFees(context)
+                                  ? "Pay now"
+                                  : "Record payment",
+                              icon: Iconsax.card,
+                              kind: WebBtnKind.primary,
+                              onTap: () =>
+                                  showRecordPaymentModal(context, i))
+                          : Text("Paid in full",
+                              style: TextStyle(
+                                  color: WebTokens.of(context).muted,
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w600)),
+                    ),
                   ],
               ],
             ),
@@ -846,5 +864,10 @@ class WebFinancePage extends StatelessWidget {
       case InvoiceStatus.pending:
         return Tone.warning;
     }
+  }
+
+  bool _canPayFees(BuildContext context) {
+    final role = Get.find<SessionController>().role;
+    return role.isParent || role.isStudent;
   }
 }
