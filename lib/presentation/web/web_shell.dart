@@ -9,6 +9,7 @@ import "package:edulink/presentation/modules/shell/widgets/global_search_delegat
 import "package:edulink/presentation/web/pages/web_engagement_pages.dart";
 import "package:edulink/presentation/web/pages/web_ops_pages.dart";
 import "package:edulink/presentation/web/pages/web_overview_pages.dart";
+import "package:edulink/presentation/web/pages/web_parent_pages.dart";
 import "package:edulink/presentation/web/web_dashboard_controller.dart";
 import "package:edulink/presentation/web/web_tokens.dart";
 
@@ -69,8 +70,35 @@ class _WebShellState extends State<WebShell> {
   }
 
   void _go(String pageId) {
-    final idx = _labels.indexWhere((l) => l.toLowerCase() == pageId);
+    final idx = List.generate(_labels.length, _labelFor)
+        .indexWhere((l) => l.toLowerCase() == pageId);
     if (idx != -1 && _canAccess(idx)) setState(() => _index = idx);
+  }
+
+  /// Parents reuse the Academics slot for "Children" and the Finance slot for
+  /// "Fees", so the label/icon/crumb adapt to their role.
+  String _labelFor(int i) {
+    if (_session.role.isParent) {
+      if (i == 2) return "Children";
+      if (i == 5) return "Fees";
+    }
+    return _labels[i];
+  }
+
+  String _crumbFor(int i) {
+    if (_session.role.isParent) {
+      if (i == 2) return "Subjects & performance";
+      if (i == 5) return "Fee slips & payments";
+    }
+    return _crumbs[i];
+  }
+
+  IconData _iconFor(int i) {
+    if (_session.role.isParent) {
+      if (i == 2) return Iconsax.people;
+      if (i == 5) return Iconsax.receipt_1;
+    }
+    return _icons[i];
   }
 
   /// Role-based access for each page (index matches [_labels]).
@@ -79,12 +107,12 @@ class _WebShellState extends State<WebShell> {
     switch (i) {
       case 1: // People
         return r.canManagePeople;
-      case 2: // Academics
-        return r.isPrincipal || r.canTeach || r.isStudent;
+      case 2: // Academics / Children
+        return r.isPrincipal || r.canTeach || r.isStudent || r.canViewChildren;
       case 3: // Attendance
         return r.canMarkAttendance;
-      case 5: // Finance
-        return r.canManageFinance;
+      case 5: // Finance / Fees
+        return r.canManageFinance || r.canPayFees;
       case 7: // Reports
         return r.isPrincipal;
       case 8: // Settings
@@ -100,19 +128,20 @@ class _WebShellState extends State<WebShell> {
       [for (int i = 0; i < _labels.length; i++) _canAccess(i) ? _pageFor(i) : const SizedBox.shrink()];
 
   Widget _pageFor(int i) {
+    final isParent = _session.role.isParent;
     switch (i) {
       case 0:
         return WebDashboardPage(onNavigate: _go);
       case 1:
         return const WebPeoplePage();
       case 2:
-        return const WebAcademicsPage();
+        return isParent ? const WebChildrenPage() : const WebAcademicsPage();
       case 3:
         return const WebAttendancePage();
       case 4:
         return const WebTimetablePage();
       case 5:
-        return const WebFinancePage();
+        return isParent ? const WebParentFeesPage() : const WebFinancePage();
       case 6:
         return const WebCommunicationPage();
       case 7:
@@ -229,7 +258,7 @@ class _WebShellState extends State<WebShell> {
                   letterSpacing: 1.1,
                   fontWeight: FontWeight.w800)),
         ),
-        ...visible.map((i) => _navTile(t, _icons[i], _labels[i], i)),
+        ...visible.map((i) => _navTile(t, _iconFor(i), _labelFor(i), i)),
       ],
     );
   }
@@ -261,7 +290,9 @@ class _WebShellState extends State<WebShell> {
                 ),
                 if (index == 5)
                   Obx(() {
-                    final n = _c.pendingInvoices;
+                    final n = _session.role.isParent
+                        ? _c.childrenUnpaidSlips
+                        : _c.pendingInvoices;
                     if (n == 0) return const SizedBox.shrink();
                     return Container(
                       padding: const EdgeInsets.symmetric(
@@ -347,13 +378,13 @@ class _WebShellState extends State<WebShell> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(_labels[_index],
+                Text(_labelFor(_index),
                     style: TextStyle(
                         color: t.ink,
                         fontSize: 16,
                         fontWeight: FontWeight.w800)),
                 const SizedBox(height: 2),
-                Text("Edulink / ${_crumbs[_index]}",
+                Text("Edulink / ${_crumbFor(_index)}",
                     style: TextStyle(color: t.muted, fontSize: 10)),
               ],
             ),

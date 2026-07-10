@@ -330,6 +330,120 @@ class _PeopleScreenState extends State<PeopleScreen>
     }
   }
 
+  Future<void> _editMember(Profile person, UserRole currentRole) async {
+    final nameCtrl = TextEditingController(text: person.fullName);
+    final phoneCtrl = TextEditingController(text: person.phone ?? "");
+    final formKey = GlobalKey<FormState>();
+    var role = _tabRoles.contains(person.role) ? person.role : currentRole;
+    final canEditRole = !person.role.isPrincipal;
+
+    final ok = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => Padding(
+          padding: EdgeInsets.only(
+            left: 20,
+            right: 20,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text("Edit member",
+                      style: Theme.of(ctx).textTheme.titleLarge),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: "Full name"),
+                    textCapitalization: TextCapitalization.words,
+                    validator: (v) => Validators.required(v, "Full name"),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: phoneCtrl,
+                    decoration:
+                        const InputDecoration(labelText: "Phone (optional)"),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  if (canEditRole) ...[
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<UserRole>(
+                      initialValue: role,
+                      decoration: const InputDecoration(labelText: "Role"),
+                      items: _tabRoles
+                          .map((r) => DropdownMenuItem(
+                              value: r, child: Text(r.label)))
+                          .toList(),
+                      onChanged: (v) => setSheet(() => role = v!),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  FilledButton(
+                    onPressed: () {
+                      if (formKey.currentState!.validate()) {
+                        Navigator.pop(ctx, true);
+                      }
+                    },
+                    child: const Text("Save changes"),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (ok == true) {
+      try {
+        await _repo.updatePerson(
+          userId: person.id,
+          fullName: nameCtrl.text.trim(),
+          phone: phoneCtrl.text.trim(),
+          role: canEditRole ? role : null,
+        );
+        SnackbarUtils.showSuccess("${nameCtrl.text.trim()} updated");
+        _reloadAll();
+      } catch (e) {
+        SnackbarUtils.showError(e.toString());
+      }
+    }
+  }
+
+  Future<void> _removeMember(Profile person) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Remove member?"),
+        content: Text(
+            "${person.fullName} will be removed from your institute (their login account is kept). Enrollments and parent links will be cleared."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Remove")),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      try {
+        await _repo.removeFromInstitute(person.id);
+        SnackbarUtils.showSuccess("${person.fullName} removed");
+        _reloadAll();
+      } catch (e) {
+        SnackbarUtils.showError(e.toString());
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -388,13 +502,43 @@ class _PeopleScreenState extends State<PeopleScreen>
                     name: p.fullName, color: AppColors.roleColor(role.key)),
                 title: Text(p.fullName),
                 subtitle: Text(p.email),
-                trailing: role.isParent
-                    ? IconButton(
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (role.isParent)
+                      IconButton(
                         icon: const Icon(Iconsax.link, size: 20),
                         tooltip: "Link to child",
                         onPressed: () => _linkParent(p),
-                      )
-                    : null,
+                      ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Iconsax.more, size: 20),
+                      onSelected: (v) {
+                        if (v == "edit") _editMember(p, role);
+                        if (v == "remove") _removeMember(p);
+                      },
+                      itemBuilder: (_) => const [
+                        PopupMenuItem(
+                          value: "edit",
+                          child: Row(children: [
+                            Icon(Iconsax.edit_2, size: 18),
+                            SizedBox(width: 10),
+                            Text("Edit"),
+                          ]),
+                        ),
+                        PopupMenuItem(
+                          value: "remove",
+                          child: Row(children: [
+                            Icon(Iconsax.trash,
+                                size: 18, color: AppColors.error),
+                            SizedBox(width: 10),
+                            Text("Remove"),
+                          ]),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           },

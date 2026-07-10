@@ -66,7 +66,8 @@ class AssessmentRepository {
   Future<List<Submission>> studentSubmissions(String studentId) async {
     final data = await _client
         .from(SupabaseConfig.tSubmissions)
-        .select("*, assignment:assignment_id(title)")
+        .select(
+            "*, assignment:assignment_id(title, max_points, subject_id, subject:subject_id(name))")
         .eq("student_id", studentId)
         .order("submitted_at", ascending: false);
     return (data as List).map((e) => Submission.fromMap(e)).toList();

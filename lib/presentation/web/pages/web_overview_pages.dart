@@ -41,6 +41,9 @@ class WebDashboardPage extends StatelessWidget {
     final name = session.profile?.fullName.split(" ").first ?? "there";
 
     return Obx(() {
+      if (session.role.isParent) {
+        return _parentDashboard(context, c, name);
+      }
       final cols = _cols(context);
       return WebPageBody(
         children: [
@@ -298,6 +301,165 @@ class WebDashboardPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _parentDashboard(
+      BuildContext context, WebDashboardController c, String name) {
+    final t = WebTokens.of(context);
+    final cols = MediaQuery.of(context).size.width < 1180 ? 2 : 4;
+    return WebPageBody(
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("${_greeting()}, $name 👋",
+                      style: TextStyle(
+                          color: t.ink,
+                          fontSize: 25,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8)),
+                  const SizedBox(height: 6),
+                  Text(
+                      "Here is how your ${c.childrenCount == 1 ? "child" : "children"} ${c.childrenCount == 1 ? "is" : "are"} doing at ${c.institute.value?.name ?? "school"}.",
+                      style: TextStyle(color: t.muted, fontSize: 13)),
+                ],
+              ),
+            ),
+            _dateChip(t),
+          ],
+        ),
+        const SizedBox(height: 22),
+        WebGrid(
+          columns: cols,
+          childAspectRatio: cols == 4 ? 1.7 : 2.3,
+          children: [
+            Kpi(
+                label: "Children",
+                value: "${c.childrenCount}",
+                icon: Iconsax.people,
+                foot: "Linked to you"),
+            Kpi(
+                label: "Fees Due",
+                value: Formatters.money(c.childrenFeesDue),
+                icon: Iconsax.wallet_3,
+                tone: Tone.warning,
+                foot: "${c.childrenUnpaidSlips} unpaid slip(s)"),
+            Kpi(
+                label: "Fees Paid",
+                value: Formatters.money(c.childrenFeesPaid),
+                icon: Iconsax.tick_circle,
+                tone: Tone.success,
+                foot: "Total settled"),
+            Kpi(
+                label: "Announcements",
+                value: "${c.announcements.length}",
+                icon: Iconsax.notification,
+                tone: Tone.info,
+                foot: "Institute updates"),
+          ],
+        ),
+        const SizedBox(height: 17),
+        _parentBottomRow(context, c),
+      ],
+    );
+  }
+
+  Widget _parentBottomRow(BuildContext context, WebDashboardController c) {
+    final quickItems = [
+      _quick(context, Iconsax.people, "My Children",
+          "Subjects & performance", () => onNavigate("children")),
+      _quick(context, Iconsax.receipt_1, "Fees",
+          "View & pay fee slips", () => onNavigate("fees")),
+      _quick(context, Iconsax.calendar_1, "Timetable",
+          "Weekly schedule", () => onNavigate("timetable")),
+      _quick(context, Iconsax.messages_1, "Messages",
+          "Announcements & chat", () => onNavigate("communication")),
+    ];
+
+    final quick = WebCard(
+      padding: const EdgeInsets.all(19),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHead(title: "Quick Actions", subtitle: "Shortcuts for you"),
+          const SizedBox(height: 14),
+          WebGrid(
+              columns: 2, gap: 10, childAspectRatio: 1.9, children: quickItems),
+        ],
+      ),
+    );
+
+    final announcements = WebCard(
+      padding: const EdgeInsets.all(19),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHead(
+              title: "Announcements",
+              subtitle: "Latest broadcasts",
+              trailing: MoreButton("View all",
+                  onTap: () => onNavigate("communication"))),
+          const SizedBox(height: 10),
+          if (c.announcements.isEmpty)
+            _emptyMini(context, "No announcements yet")
+          else
+            ...c.announcements.take(4).map((a) => _activityRow(
+                context,
+                Iconsax.notification,
+                a.title,
+                a.authorName ?? "Announcement",
+                Formatters.date(a.createdAt))),
+        ],
+      ),
+    );
+
+    final fees = WebCard(
+      padding: const EdgeInsets.all(19),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHead(
+              title: "Recent Fee Slips",
+              subtitle: "Your children's invoices",
+              trailing: MoreButton("View all", onTap: () => onNavigate("fees"))),
+          const SizedBox(height: 10),
+          if (c.childrenInvoices.isEmpty)
+            _emptyMini(context, "No fee slips yet")
+          else
+            ...c.childrenInvoices.take(4).map((i) => _activityRow(
+                context,
+                Iconsax.money_recive,
+                i.title,
+                "${i.studentName ?? "Student"} · ${Formatters.money(i.balance)} due",
+                i.status.label)),
+        ],
+      ),
+    );
+
+    final w = MediaQuery.of(context).size.width;
+    if (w < 1180) {
+      return Column(children: [
+        quick,
+        const SizedBox(height: 17),
+        announcements,
+        const SizedBox(height: 17),
+        fees,
+      ]);
+    }
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(child: quick),
+        const SizedBox(width: 17),
+        Expanded(child: announcements),
+        const SizedBox(width: 17),
+        Expanded(child: fees),
+      ],
     );
   }
 
@@ -645,6 +807,7 @@ class WebPeoplePage extends StatelessWidget {
                       WebCol("Role", flex: 2),
                       WebCol("Contact", flex: 3),
                       WebCol("Status", flex: 2),
+                      WebCol("", flex: 2, right: true),
                     ],
                     rows: [
                       for (final p in people)
@@ -654,6 +817,18 @@ class WebPeoplePage extends StatelessWidget {
                           Text(p.email,
                               maxLines: 1, overflow: TextOverflow.ellipsis),
                           const StatusChip("Active", tone: Tone.success),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              TableAction(Iconsax.edit_2,
+                                  onTap: () => _editPerson(context, c, p)),
+                              if (!p.role.isPrincipal) ...[
+                                const SizedBox(width: 5),
+                                TableAction(Iconsax.trash,
+                                    onTap: () => _confirmRemove(context, c, p)),
+                              ],
+                            ],
+                          ),
                         ],
                     ],
                   ),
@@ -739,6 +914,39 @@ class WebPeoplePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _editPerson(
+      BuildContext context, WebDashboardController c, Profile p) async {
+    await showEditPersonModal(context, p);
+  }
+
+  Future<void> _confirmRemove(
+      BuildContext context, WebDashboardController c, Profile p) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Remove member?"),
+        content: Text(
+            "${p.fullName} will be removed from your institute (their login account is kept). Enrollments and parent links will be cleared."),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel")),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Remove")),
+        ],
+      ),
+    );
+    if (ok == true) {
+      try {
+        await c.removePerson(p.id);
+        SnackbarUtils.showSuccess("${p.fullName} removed");
+      } catch (err) {
+        SnackbarUtils.showError(err.toString());
+      }
+    }
   }
 }
 

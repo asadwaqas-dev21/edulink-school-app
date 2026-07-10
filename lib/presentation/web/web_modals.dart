@@ -693,6 +693,84 @@ Future<void> showAddMemberModal(BuildContext context, {UserRole? initialRole}) a
   );
 }
 
+// ── Edit person ──
+Future<void> showEditPersonModal(BuildContext context, Profile person) async {
+  final t = WebTokens.of(context);
+  final nameCtrl = TextEditingController(text: person.fullName);
+  final phoneCtrl = TextEditingController(text: person.phone ?? "");
+  var role = person.role;
+
+  // Only non-principal members can have their role reassigned.
+  const editableRoles = [UserRole.teacher, UserRole.student, UserRole.parent];
+  final canEditRole = !person.role.isPrincipal;
+
+  await showWebModal(
+    context: context,
+    title: "Edit member",
+    saveLabel: "Save changes",
+    body: (ctx, setState) => Column(
+      children: [
+        WebField(
+            label: "Full name",
+            child: TextField(
+                controller: nameCtrl,
+                decoration: _dec(t, hint: "e.g. Ayesha Khan"))),
+        const SizedBox(height: 12),
+        WebField(
+          label: "Email",
+          child: TextField(
+              controller: TextEditingController(text: person.email),
+              enabled: false,
+              decoration: _dec(t)),
+        ),
+        const SizedBox(height: 12),
+        WebField(
+            label: "Phone (optional)",
+            child: TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: _dec(t, hint: "03xx-xxxxxxx"))),
+        if (canEditRole) ...[
+          const SizedBox(height: 12),
+          WebField(
+            label: "Role",
+            child: DropdownButtonFormField<UserRole>(
+              initialValue:
+                  editableRoles.contains(role) ? role : UserRole.student,
+              isExpanded: true,
+              decoration: _dec(t),
+              items: editableRoles
+                  .map((r) =>
+                      DropdownMenuItem(value: r, child: Text(r.label)))
+                  .toList(),
+              onChanged: (v) => setState(() => role = v!),
+            ),
+          ),
+        ],
+      ],
+    ),
+    onSave: () async {
+      if (nameCtrl.text.trim().isEmpty) {
+        SnackbarUtils.showWarning("Enter the member's full name");
+        return false;
+      }
+      try {
+        await _c.updatePerson(
+          userId: person.id,
+          fullName: nameCtrl.text.trim(),
+          phone: phoneCtrl.text.trim(),
+          role: canEditRole ? role : null,
+        );
+        SnackbarUtils.showSuccess("${nameCtrl.text.trim()} updated");
+        return true;
+      } catch (e) {
+        SnackbarUtils.showError(e.toString());
+        return false;
+      }
+    },
+  );
+}
+
 List<Widget> _roleFields(
   WebTokens t, {
   required UserRole role,

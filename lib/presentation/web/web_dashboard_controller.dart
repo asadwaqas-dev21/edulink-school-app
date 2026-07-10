@@ -11,6 +11,7 @@ import "package:edulink/domain/entities/expense.dart";
 import "package:edulink/domain/entities/institute.dart";
 import "package:edulink/domain/entities/invoice.dart";
 import "package:edulink/domain/entities/invoice_item.dart";
+import "package:edulink/domain/entities/parent_link.dart";
 import "package:edulink/domain/entities/payment.dart";
 import "package:edulink/domain/entities/profile.dart";
 import "package:edulink/domain/entities/school_class.dart";
@@ -37,7 +38,13 @@ class WebDashboardController extends GetxController {
   final RxList<Profile> parents = <Profile>[].obs;
   final RxList<Announcement> announcements = <Announcement>[].obs;
 
-  String get instituteId => _session.instituteId ?? "";
+  // Parent-scoped data.
+  final RxList<ParentLink> children = <ParentLink>[].obs;
+  final RxList<Invoice> childrenInvoices = <Invoice>[].obs;
+  final RxString _resolvedInstituteId = "".obs;
+
+  String get instituteId =>
+      _session.instituteId ?? (_resolvedInstituteId.value);
 
   num get collected => finance["collected"] ?? 0;
   num get billed => finance["billed"] ?? 0;
@@ -52,6 +59,15 @@ class WebDashboardController extends GetxController {
 
   List<Profile> get allPeople => [...students, ...teachers, ...parents];
 
+  // ── Parent-scoped getters ──
+  int get childrenCount => children.length;
+  num get childrenFeesDue =>
+      childrenInvoices.fold<num>(0, (s, i) => s + i.balance);
+  num get childrenFeesPaid =>
+      childrenInvoices.fold<num>(0, (s, i) => s + i.amountPaid);
+  int get childrenUnpaidSlips =>
+      childrenInvoices.where((i) => i.balance > 0).length;
+
   @override
   void onInit() {
     super.onInit();
@@ -59,6 +75,14 @@ class WebDashboardController extends GetxController {
   }
 
   Future<void> load() async {
+    if (_session.role.isParent) {
+      await _loadParent();
+      return;
+    }
+    await _loadInstitute();
+  }
+
+  Future<void> _loadInstitute() async {
     final id = instituteId;
     if (id.isEmpty) {
       isLoading.value = false;
@@ -91,6 +115,46 @@ class WebDashboardController extends GetxController {
     } finally {
       isLoading.value = false;
     }
+  }
+
+  Future<void> _loadParent() async {
+    isLoading.value = true;
+    try {
+      final uid = _session.userId;
+      if (uid == null) return;
+
+      final kids = await _academics.childrenOfParent(uid);
+      children.assignAll(kids);
+      final ids = kids.map((c) => c.studentId).toList();
+      childrenInvoices.assignAll(
+          ids.isEmpty ? <Invoice>[] : await _finance.forStudents(ids));
+
+      // Resolve the parent's institute from a child if it isn't set yet, so
+      // announcements/timetable/chat and the shell work for them.
+      var instId = _session.instituteId ?? "";
+      if (instId.isEmpty && ids.isNotEmpty) {
+        final childProfile = await _academics.findById(ids.first);
+        instId = childProfile?.instituteId ?? "";
+        if (instId.isNotEmpty) {
+          await _academics.assignInstitute(uid, instId);
+          await _session.refreshProfile();
+        }
+      }
+      _resolvedInstituteId.value = instId;
+
+      if (instId.isNotEmpty) {
+        institute.value = await _institutes.getById(instId);
+        announcements.assignAll(await _comm.announcements(instId));
+      }
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
+  Future<void> reloadChildrenFinance() async {
+    final ids = children.map((c) => c.studentId).toList();
+    childrenInvoices.assignAll(
+        ids.isEmpty ? <Invoice>[] : await _finance.forStudents(ids));
   }
 
   // ── Actions (reuse existing repositories) ──
@@ -177,6 +241,28 @@ class WebDashboardController extends GetxController {
       childStudentId: childStudentId,
       relation: relation,
     );
+    await load();
+  }
+
+  /// Updates an existing member's editable details and refreshes the lists.
+  Future<void> updatePerson({
+    required String userId,
+    required String fullName,
+    String? phone,
+    UserRole? role,
+  }) async {
+    await _academics.updatePerson(
+      userId: userId,
+      fullName: fullName,
+      phone: phone,
+      role: role,
+    );
+    await load();
+  }
+
+  /// Removes a member from the institute and refreshes the lists.
+  Future<void> removePerson(String userId) async {
+    await _academics.removeFromInstitute(userId);
     await load();
   }
 }

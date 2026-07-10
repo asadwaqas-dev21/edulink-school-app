@@ -11,6 +11,9 @@ class Submission {
   final SubmissionStatus status;
   final String? studentName;
   final String? assignmentTitle;
+  final String? subjectId;
+  final String? subjectName;
+  final num? maxPoints;
   final DateTime? submittedAt;
   final DateTime? gradedAt;
 
@@ -25,6 +28,9 @@ class Submission {
     this.status = SubmissionStatus.submitted,
     this.studentName,
     this.assignmentTitle,
+    this.subjectId,
+    this.subjectName,
+    this.maxPoints,
     this.submittedAt,
     this.gradedAt,
   });
@@ -32,6 +38,7 @@ class Submission {
   factory Submission.fromMap(Map<String, dynamic> map) {
     final student = map["student"];
     final assignment = map["assignment"];
+    final subject = assignment is Map ? assignment["subject"] : null;
     return Submission(
       id: map["id"] as String,
       assignmentId: (map["assignment_id"] ?? "") as String,
@@ -42,7 +49,11 @@ class Submission {
       feedback: map["feedback"] as String?,
       status: SubmissionStatus.fromKey(map["status"] as String?),
       studentName: student is Map ? student["full_name"] as String? : null,
-      assignmentTitle: assignment is Map ? assignment["title"] as String? : null,
+      assignmentTitle:
+          assignment is Map ? assignment["title"] as String? : null,
+      subjectId: assignment is Map ? assignment["subject_id"] as String? : null,
+      subjectName: subject is Map ? subject["name"] as String? : null,
+      maxPoints: assignment is Map ? assignment["max_points"] as num? : null,
       submittedAt: map["submitted_at"] == null
           ? null
           : DateTime.tryParse(map["submitted_at"].toString()),

@@ -204,6 +204,41 @@ class AcademicsRepository {
         .update({"class_teacher_id": teacherId}).eq("id", classId);
   }
 
+  /// Updates an existing member's editable profile fields.
+  Future<void> updatePerson({
+    required String userId,
+    required String fullName,
+    String? phone,
+    UserRole? role,
+  }) async {
+    await _client.from(SupabaseConfig.tProfiles).update({
+      "full_name": fullName.trim(),
+      if (phone != null) "phone": phone.trim().isEmpty ? null : phone.trim(),
+      if (role != null) "role": role.key,
+    }).eq("id", userId);
+  }
+
+  /// Removes a member from the institute. Their login account is kept, but they
+  /// are detached from the institute and any enrollments / parent links that
+  /// reference them are cleared so they disappear from the People lists.
+  Future<void> removeFromInstitute(String userId) async {
+    await _client
+        .from(SupabaseConfig.tEnrollments)
+        .delete()
+        .eq("student_id", userId);
+    await _client
+        .from(SupabaseConfig.tParentLinks)
+        .delete()
+        .eq("parent_id", userId);
+    await _client
+        .from(SupabaseConfig.tParentLinks)
+        .delete()
+        .eq("student_id", userId);
+    await _client
+        .from(SupabaseConfig.tProfiles)
+        .update({"institute_id": null}).eq("id", userId);
+  }
+
   /// Creates a member account and wires up their role-specific details in one
   /// call: students can be enrolled into a class (with a roll number), teachers
   /// can be set as the class teacher of a class, and parents can be linked to a
@@ -288,10 +323,31 @@ class AcademicsRepository {
         .insert(link.toMap())
         .select("*, parent:parent_id(full_name), student:student_id(full_name)")
         .single();
+
+    // Make sure the parent belongs to the same institute as their child so
+    // announcements, chat and the web dashboard work for them.
+    final child = await findById(link.studentId);
+    final parent = await findById(link.parentId);
+    if (child?.instituteId != null &&
+        child!.instituteId!.isNotEmpty &&
+        (parent?.instituteId == null || parent!.instituteId!.isEmpty)) {
+      await assignInstitute(link.parentId, child.instituteId!);
+    }
+
     return ParentLink.fromMap(data);
   }
 
   Future<void> unlinkParent(String id) async {
     await _client.from(SupabaseConfig.tParentLinks).delete().eq("id", id);
+  }
+
+  /// All subjects across every class a student is enrolled in.
+  Future<List<Subject>> subjectsForStudent(String studentId) async {
+    final enrollments = await enrollmentsForStudent(studentId);
+    final all = <Subject>[];
+    for (final e in enrollments) {
+      all.addAll(await subjects(e.classId));
+    }
+    return all;
   }
 }

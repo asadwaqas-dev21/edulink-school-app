@@ -35,4 +35,8 @@ enum UserRole {
   bool get canManageFinance => isPrincipal;
   bool get canPayFees => isParent || isPrincipal;
   bool get canBroadcast => isPrincipal || isTeacher;
+
+  /// Parents get a dedicated view of their linked children (subjects,
+  /// performance and fees) instead of the institute-wide admin views.
+  bool get canViewChildren => isParent;
 }
