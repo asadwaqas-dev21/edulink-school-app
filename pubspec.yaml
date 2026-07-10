@@ -1,0 +1,53 @@
+name: edulink
+description: "Edulink — Multi-role LMS for schools & colleges (educational + financial management)."
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # State Management & Routing
+  get: ^4.7.2
+
+  # Backend (Supabase)
+  supabase_flutter: ^2.8.0
+
+  # Icons
+  iconsax: ^0.0.8
+
+  # UI & Animations
+  google_fonts: ^6.2.1
+  shimmer: ^3.0.0
+  cached_network_image: ^3.4.1
+  flutter_staggered_animations: ^1.1.1
+
+  # Files & Media
+  file_picker: ^8.1.4
+
+  # PDF generation & printing (fee slips)
+  pdf: ^3.11.1
+  printing: ^5.13.4
+
+  # Utilities
+  intl: ^0.20.2
+  shared_preferences: ^2.5.3
+  uuid: ^4.5.1
+  url_launcher: ^6.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
