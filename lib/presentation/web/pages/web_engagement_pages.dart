@@ -3,6 +3,7 @@ import "package:get/get.dart";
 import "package:iconsax/iconsax.dart";
 import "package:edulink/app/session/session_controller.dart";
 import "package:edulink/core/enums/status_enums.dart";
+import "package:edulink/core/theme/theme_controller.dart";
 import "package:edulink/core/utils/formatters.dart";
 import "package:edulink/core/utils/snackbar_utils.dart";
 import "package:edulink/data/repositories/communication_repository.dart";
@@ -100,7 +101,8 @@ class _WebCommunicationPageState extends State<WebCommunicationPage> {
     final announcements = _announcements(context);
     final chat = _chat(context, contacts);
     if (MediaQuery.of(context).size.width < 980) {
-      return Column(children: [announcements, const SizedBox(height: 17), chat]);
+      return Column(
+          children: [announcements, const SizedBox(height: 17), chat]);
     }
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -285,8 +287,8 @@ class _WebCommunicationPageState extends State<WebCommunicationPage> {
         Container(
           height: 62,
           padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: t.line))),
+          decoration:
+              BoxDecoration(border: Border(bottom: BorderSide(color: t.line))),
           child: Row(
             children: [
               Monogram(Formatters.initials(_contact!.fullName),
@@ -316,14 +318,13 @@ class _WebCommunicationPageState extends State<WebCommunicationPage> {
                   child: _messages.isEmpty
                       ? Center(
                           child: Text("No messages yet. Say hello!",
-                              style:
-                                  TextStyle(color: t.muted, fontSize: 10.5)))
+                              style: TextStyle(color: t.muted, fontSize: 10.5)))
                       : ListView(
                           padding: const EdgeInsets.all(16),
                           children: [
                             for (final m in _messages)
-                              _bubble(context, m,
-                                  m.senderId == _session.userId),
+                              _bubble(
+                                  context, m, m.senderId == _session.userId),
                           ],
                         ),
                 ),
@@ -383,8 +384,8 @@ class _WebCommunicationPageState extends State<WebCommunicationPage> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 9),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.32),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.32),
         decoration: BoxDecoration(
           color: me ? t.primary : t.panel,
           border: me ? null : Border.all(color: t.line),
@@ -438,8 +439,12 @@ class WebReportsPage extends StatelessWidget {
             columns: MediaQuery.of(context).size.width < 1180 ? 2 : 4,
             childAspectRatio: 3.1,
             children: [
-              _summary(context, Iconsax.chart_2, "Collection rate",
-                  "${(c.collectionRate * 100).toStringAsFixed(1)}%", Tone.primary),
+              _summary(
+                  context,
+                  Iconsax.chart_2,
+                  "Collection rate",
+                  "${(c.collectionRate * 100).toStringAsFixed(1)}%",
+                  Tone.primary),
               _summary(context, Iconsax.money_recive, "Collected",
                   Formatters.money(c.collected), Tone.success),
               _summary(context, Iconsax.receipt_item, "Outstanding",
@@ -614,7 +619,10 @@ class _BarChart extends StatelessWidget {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [b.tone.fg(t), b.tone.fg(t).withValues(alpha: 0.55)],
+                          colors: [
+                            b.tone.fg(t),
+                            b.tone.fg(t).withValues(alpha: 0.55)
+                          ],
                         ),
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(7)),
@@ -804,7 +812,105 @@ class _WebSettingsPageState extends State<WebSettingsPage> {
               Expanded(child: defaults),
             ],
           ),
+        const SizedBox(height: 17),
+        _appearanceCard(t),
       ],
+    );
+  }
+
+  Widget _appearanceCard(WebTokens t) {
+    final theme = Get.find<ThemeController>();
+    return WebCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHead(
+              title: "Appearance",
+              subtitle:
+                  "Accent color and typography apply across the whole app"),
+          const SizedBox(height: 16),
+          Text("ACCENT COLOR",
+              style: TextStyle(
+                  color: t.muted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4)),
+          const SizedBox(height: 10),
+          Obx(() {
+            final selected = theme.primaryColor.toARGB32();
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              children: [
+                for (final opt in ThemeController.colorOptions)
+                  GestureDetector(
+                    onTap: () => theme.setPrimaryColor(opt.color),
+                    child: Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: opt.color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: selected == opt.color.toARGB32()
+                              ? t.ink
+                              : Colors.transparent,
+                          width: 3,
+                        ),
+                      ),
+                      child: selected == opt.color.toARGB32()
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 16)
+                          : null,
+                    ),
+                  ),
+              ],
+            );
+          }),
+          const SizedBox(height: 20),
+          Text("TYPOGRAPHY",
+              style: TextStyle(
+                  color: t.muted,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.4)),
+          const SizedBox(height: 10),
+          Obx(() => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final font in ThemeController.fontOptions)
+                    _fontPill(t, font, theme.fontFamily == font,
+                        () => theme.setFont(font)),
+                ],
+              )),
+        ],
+      ),
+    );
+  }
+
+  Widget _fontPill(
+      WebTokens t, String font, bool selected, VoidCallback onTap) {
+    return Material(
+      color: selected ? t.primary : t.panel2,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(9),
+            border: Border.all(color: selected ? t.primary : t.line),
+          ),
+          child: Text(font,
+              style: TextStyle(
+                  color: selected ? Colors.white : t.ink,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w700)),
+        ),
+      ),
     );
   }
 

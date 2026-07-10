@@ -143,9 +143,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                         const SizedBox(height: 8),
                         Text(
                           "Feedback: ${sub.feedback}",
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                fontStyle: FontStyle.italic,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontStyle: FontStyle.italic,
+                                  ),
                         ),
                       ],
                     ],
@@ -198,8 +199,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                             Text("Score: ${r.score} / ${r.totalPoints}",
                                 style: Theme.of(context).textTheme.bodyMedium),
                             const SizedBox(height: 4),
-                            Text(
-                                "Taken: ${Formatters.dateTime(r.submittedAt)}",
+                            Text("Taken: ${Formatters.dateTime(r.submittedAt)}",
                                 style: Theme.of(context).textTheme.bodySmall),
                           ],
                         ),
@@ -213,7 +213,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                         ),
                         child: Text(
                           "${r.percentage.toStringAsFixed(1)}%",
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),

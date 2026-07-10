@@ -27,6 +27,8 @@ abstract class SupabaseConfig {
   static const String tQuizzes = "quizzes";
   static const String tQuizQuestions = "quiz_questions";
   static const String tQuizResults = "quiz_results";
+  static const String tCustomTests = "custom_tests";
+  static const String tTestResults = "test_results";
   static const String tAttendance = "attendance";
   static const String tTimetable = "timetable";
   static const String tInvoices = "invoices";

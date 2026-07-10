@@ -256,7 +256,7 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen> {
                 final s = subjects[i];
                 return Card(
                   child: ListTile(
-                    leading: const Icon(Iconsax.book_1,
+                    leading: Icon(Iconsax.book_1,
                         color: AppColors.primary),
                     title: Text(s.name),
                     subtitle: Text([

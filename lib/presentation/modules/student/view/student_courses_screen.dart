@@ -59,7 +59,7 @@ class _StudentCoursesScreenState extends State<StudentCoursesScreen> {
                       const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                    child: const Icon(Iconsax.book_1, color: AppColors.primary),
+                    child: Icon(Iconsax.book_1, color: AppColors.primary),
                   ),
                   title: Text(e.className ?? "My Class"),
                   subtitle: e.rollNo != null ? Text("Roll: ${e.rollNo}") : null,

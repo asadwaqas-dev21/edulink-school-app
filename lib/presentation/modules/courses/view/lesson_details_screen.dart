@@ -37,7 +37,11 @@ class _LessonDetailsScreenState extends State<LessonDetailsScreen> {
     _materials = _repo.materials(_lesson.id);
   }
 
-  void _reload() { setState(() { _materials = _repo.materials(_lesson.id); }); }
+  void _reload() {
+    setState(() {
+      _materials = _repo.materials(_lesson.id);
+    });
+  }
 
   Future<void> _open(String url) async {
     final uri = Uri.tryParse(url);
@@ -142,7 +146,7 @@ class _LessonDetailsScreenState extends State<LessonDetailsScreen> {
                     .map((m) => Card(
                           margin: const EdgeInsets.only(bottom: 10),
                           child: ListTile(
-                            leading: const Icon(Iconsax.document,
+                            leading: Icon(Iconsax.document,
                                 color: AppColors.primary),
                             title: Text(m.title),
                             subtitle: m.fileType != null

@@ -1,17 +1,43 @@
 import "package:flutter/material.dart";
 
-/// Indigo & Teal color palette for Edulink LMS.
+/// Custom color palette based on Kurchu logo.
+///
+/// The primary/brand family is intentionally NOT `const`: it can be re-skinned
+/// at runtime via [applyPrimary] so a user-chosen accent color flows through the
+/// whole app (mobile + web). All references stay `AppColors.primary`, etc.
 abstract class AppColors {
-  // Primary (Indigo)
-  static const Color primary = Color(0xFF3538CD);
-  static const Color primaryLight = Color(0xFF5D5FEF);
-  static const Color primaryDark = Color(0xFF2426A0);
-  static const Color primarySurface = Color(0xFFEEF0FF);
+  /// Default brand color, used when no preference is stored.
+  static const Color defaultPrimary = Color(0xFF1BA4DF);
 
-  // Accent (Teal)
-  static const Color accent = Color(0xFF12B5A5);
-  static const Color accentLight = Color(0xFF3ED0C1);
-  static const Color accentDark = Color(0xFF0C877B);
+  // Primary (dynamic — see [applyPrimary])
+  static Color primary = defaultPrimary;
+  static Color primaryLight = const Color(0xFF4FC1F0);
+  static Color primaryDark = const Color(0xFF107AAB);
+  static Color primarySurface = const Color(0xFFE4F5FD);
+
+  /// Re-skins the primary family from a single [base] color, deriving the
+  /// light / dark / surface variants so the whole palette stays coherent.
+  static void applyPrimary(Color base) {
+    primary = base;
+    primaryLight = _lighten(base, 0.12);
+    primaryDark = _darken(base, 0.16);
+    primarySurface = Color.lerp(base, Colors.white, 0.88)!;
+  }
+
+  static Color _lighten(Color c, double amount) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((hsl.lightness + amount).clamp(0.0, 1.0)).toColor();
+  }
+
+  static Color _darken(Color c, double amount) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl.withLightness((hsl.lightness - amount).clamp(0.0, 1.0)).toColor();
+  }
+
+  // Accent (Steel Blue)
+  static const Color accent = Color(0xFF397BB0);
+  static const Color accentLight = Color(0xFF629AC9);
+  static const Color accentDark = Color(0xFF24537A);
 
   // Semantic
   static const Color success = Color(0xFF16A34A);
@@ -37,15 +63,15 @@ abstract class AppColors {
   static const Color textSecondaryDark = Color(0xFFA5ACC0);
   static const Color textTertiaryDark = Color(0xFF667085);
 
-  static const LinearGradient primaryGradient = LinearGradient(
-    colors: [primary, primaryLight],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  static LinearGradient get primaryGradient => LinearGradient(
+        colors: [primary, primaryLight],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
 
   // Role accent colors used across dashboards.
-  static const Color roleStudent = Color(0xFF3538CD);
-  static const Color roleTeacher = Color(0xFF12B5A5);
+  static const Color roleStudent = Color(0xFF1BA4DF);
+  static const Color roleTeacher = Color(0xFF397BB0);
   static const Color roleParent = Color(0xFFF59E0B);
   static const Color rolePrincipal = Color(0xFF7C3AED);
 

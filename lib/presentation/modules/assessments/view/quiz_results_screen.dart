@@ -62,14 +62,15 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                   color: AppColors.primary.withValues(alpha: 0.05),
                   child: Row(
                     children: [
-                      const Icon(Iconsax.people, color: AppColors.primary),
+                      Icon(Iconsax.people, color: AppColors.primary),
                       const SizedBox(width: 12),
                       Text(
                         "Total Submissions: ${results.length}",
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                            ),
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
                       ),
                     ],
                   ),
@@ -93,10 +94,14 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(r.studentName ?? "Unknown Student",
-                                        style: Theme.of(context).textTheme.titleMedium),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium),
                                     const SizedBox(height: 4),
                                     Text("Score: ${r.score} / ${r.totalPoints}",
-                                        style: Theme.of(context).textTheme.bodyMedium),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium),
                                   ],
                                 ),
                               ),
@@ -104,12 +109,13 @@ class _QuizResultsScreenState extends State<QuizResultsScreen> {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withValues(alpha: 0.1),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
                                   "${r.percentage.toStringAsFixed(1)}%",
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     color: AppColors.primary,
                                     fontWeight: FontWeight.bold,
                                   ),

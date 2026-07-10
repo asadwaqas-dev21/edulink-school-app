@@ -1,4 +1,5 @@
 import "package:flutter/material.dart";
+import "package:edulink/core/theme/app_colors.dart";
 
 /// Design tokens for the professional web/desktop dashboard, mirroring the
 /// approved HTML prototype (light + dark palettes).
@@ -16,10 +17,11 @@ class WebTokens {
   Color get muted => dark ? const Color(0xFF95A1B8) : const Color(0xFF718096);
   Color get line => dark ? const Color(0xFF273044) : const Color(0xFFE7ECF3);
 
-  Color get primary => const Color(0xFF5B5CE2);
-  Color get primary2 => const Color(0xFF7B7CF0);
-  Color get primarySoft =>
-      dark ? const Color(0xFF282953) : const Color(0xFFEEEFFF);
+  Color get primary => AppColors.primary;
+  Color get primary2 => AppColors.primaryLight;
+  Color get primarySoft => dark
+      ? AppColors.primaryDark.withValues(alpha: 0.3)
+      : AppColors.primarySurface;
 
   Color get success => const Color(0xFF19A974);
   Color get successSoft =>
@@ -31,10 +33,11 @@ class WebTokens {
   Color get dangerSoft =>
       dark ? const Color(0xFF3F2429) : const Color(0xFFFFEDED);
   Color get info => const Color(0xFF3994FF);
-  Color get infoSoft => dark ? const Color(0xFF1B3047) : const Color(0xFFEAF4FF);
+  Color get infoSoft =>
+      dark ? const Color(0xFF1B3047) : const Color(0xFFEAF4FF);
 
-  LinearGradient get brandGradient => const LinearGradient(
-        colors: [Color(0xFF6264ED), Color(0xFF4C4ED1)],
+  LinearGradient get brandGradient => LinearGradient(
+        colors: [AppColors.primaryLight, AppColors.primary],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
       );

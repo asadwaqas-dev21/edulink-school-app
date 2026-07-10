@@ -37,7 +37,11 @@ class _ClassesScreenState extends State<ClassesScreen> {
     return _repo.classes(_session.instituteId ?? "");
   }
 
-  void _reload() { setState(() { _future = _load(); }); }
+  void _reload() {
+    setState(() {
+      _future = _load();
+    });
+  }
 
   Future<void> _createClass() async {
     final nameCtrl = TextEditingController();
@@ -102,8 +106,10 @@ class _ClassesScreenState extends State<ClassesScreen> {
           id: "",
           instituteId: _session.instituteId ?? "",
           name: nameCtrl.text.trim(),
-          section: sectionCtrl.text.trim().isEmpty ? null : sectionCtrl.text.trim(),
-          gradeLevel: gradeCtrl.text.trim().isEmpty ? null : gradeCtrl.text.trim(),
+          section:
+              sectionCtrl.text.trim().isEmpty ? null : sectionCtrl.text.trim(),
+          gradeLevel:
+              gradeCtrl.text.trim().isEmpty ? null : gradeCtrl.text.trim(),
         ));
         SnackbarUtils.showSuccess("Class created");
         _reload();
@@ -137,7 +143,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
               icon: Iconsax.warning_2,
               title: "Couldn't load classes",
               subtitle: snapshot.error.toString(),
-              action: OutlinedButton(onPressed: _reload, child: const Text("Retry")),
+              action: OutlinedButton(
+                  onPressed: _reload, child: const Text("Retry")),
             );
           }
           final classes = snapshot.data ?? [];
@@ -163,8 +170,9 @@ class _ClassesScreenState extends State<ClassesScreen> {
                     contentPadding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     leading: CircleAvatar(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                      child: const Icon(Iconsax.book_1, color: AppColors.primary),
+                      backgroundColor:
+                          AppColors.primary.withValues(alpha: 0.12),
+                      child: Icon(Iconsax.book_1, color: AppColors.primary),
                     ),
                     title: Text(c.displayName,
                         style: Theme.of(context).textTheme.titleMedium),
@@ -172,7 +180,8 @@ class _ClassesScreenState extends State<ClassesScreen> {
                         ? Text("Grade: ${c.gradeLevel}")
                         : null,
                     trailing: const Icon(Iconsax.arrow_right_3, size: 18),
-                    onTap: () => Get.to(() => ClassDetailsScreen(schoolClass: c)),
+                    onTap: () =>
+                        Get.to(() => ClassDetailsScreen(schoolClass: c)),
                   ),
                 );
               },

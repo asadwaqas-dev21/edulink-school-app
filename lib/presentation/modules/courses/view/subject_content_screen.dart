@@ -118,7 +118,7 @@ class _SubjectContentScreenState extends State<SubjectContentScreen> {
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
                     child: Text("${i + 1}",
-                        style: const TextStyle(
+                        style: TextStyle(
                             color: AppColors.primary,
                             fontWeight: FontWeight.bold)),
                   ),
@@ -156,13 +156,13 @@ class _SubjectContentScreenState extends State<SubjectContentScreen> {
         TextFormField(
           controller: descCtrl,
           maxLines: 3,
-          decoration: const InputDecoration(labelText: "Description (optional)"),
+          decoration:
+              const InputDecoration(labelText: "Description (optional)"),
         ),
         const SizedBox(height: 12),
         TextFormField(
           controller: videoCtrl,
-          decoration:
-              const InputDecoration(labelText: "Video URL (optional)"),
+          decoration: const InputDecoration(labelText: "Video URL (optional)"),
         ),
       ],
     );
@@ -210,8 +210,7 @@ class _SubjectContentScreenState extends State<SubjectContentScreen> {
               final a = items[i];
               return Card(
                 child: ListTile(
-                  leading: const Icon(Iconsax.task_square,
-                      color: AppColors.primary),
+                  leading: Icon(Iconsax.task_square, color: AppColors.primary),
                   title: Text(a.title),
                   subtitle: Text(a.dueDate != null
                       ? "Due ${Formatters.date(a.dueDate)}  •  ${a.maxPoints} pts"
@@ -350,7 +349,8 @@ class _SubjectContentScreenState extends State<SubjectContentScreen> {
         TextFormField(
           controller: descCtrl,
           maxLines: 2,
-          decoration: const InputDecoration(labelText: "Description (optional)"),
+          decoration:
+              const InputDecoration(labelText: "Description (optional)"),
         ),
       ],
     );

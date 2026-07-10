@@ -178,6 +178,40 @@ create table if not exists public.quiz_questions (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.quiz_results (
+  id uuid primary key default gen_random_uuid(),
+  quiz_id uuid not null references public.quizzes(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  score int not null default 0,
+  total_points int not null default 0,
+  submitted_at timestamptz not null default now(),
+  unique (quiz_id, student_id)
+);
+
+-- Custom tests (exams, midterms, practicals, etc.)
+create table if not exists public.custom_tests (
+  id uuid primary key default gen_random_uuid(),
+  subject_id uuid not null references public.subjects(id) on delete cascade,
+  class_id uuid not null references public.classes(id) on delete cascade,
+  title text not null,
+  description text,
+  test_date date,
+  max_marks int not null default 100,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+-- Results for custom tests (one row per student per test)
+create table if not exists public.test_results (
+  id uuid primary key default gen_random_uuid(),
+  test_id uuid not null references public.custom_tests(id) on delete cascade,
+  student_id uuid not null references public.profiles(id) on delete cascade,
+  obtained_marks numeric not null default 0,
+  remarks text,
+  created_at timestamptz not null default now(),
+  unique (test_id, student_id)
+);
+
 -- ---------- Attendance & timetable ----------
 create table if not exists public.attendance (
   id uuid primary key default gen_random_uuid(),
@@ -296,6 +330,9 @@ alter table public.assignments    enable row level security;
 alter table public.submissions    enable row level security;
 alter table public.quizzes        enable row level security;
 alter table public.quiz_questions enable row level security;
+alter table public.quiz_results   enable row level security;
+alter table public.custom_tests   enable row level security;
+alter table public.test_results   enable row level security;
 alter table public.attendance     enable row level security;
 alter table public.timetable      enable row level security;
 alter table public.invoices       enable row level security;
@@ -328,7 +365,8 @@ begin
   foreach t in array array[
     'institutes','classes','subjects','enrollments','parent_links',
     'lessons','materials','assignments','submissions','quizzes',
-    'quiz_questions','attendance','timetable','invoices','invoice_items',
+    'quiz_questions','quiz_results','custom_tests','test_results',
+    'attendance','timetable','invoices','invoice_items',
     'payments','announcements','messages'
   ]
   loop

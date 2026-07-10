@@ -5,11 +5,19 @@ import "package:edulink/core/theme/app_colors.dart";
 
 /// Complete Material 3 theme data for light and dark modes.
 abstract class AppTheme {
+  /// Active Google Font family. Changed at runtime by the ThemeController so
+  /// typography flows through the whole app. Must be a valid Google Fonts name.
+  static String fontKey = "Inter";
+
+  static TextStyle _font({double? fontSize, FontWeight? fontWeight, Color? color}) =>
+      GoogleFonts.getFont(fontKey,
+          fontSize: fontSize, fontWeight: fontWeight, color: color);
+
   static ThemeData get light => ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
         scaffoldBackgroundColor: AppColors.backgroundLight,
-        colorScheme: const ColorScheme.light(
+        colorScheme: ColorScheme.light(
           primary: AppColors.primary,
           primaryContainer: AppColors.primarySurface,
           secondary: AppColors.accent,
@@ -33,7 +41,7 @@ abstract class AppTheme {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: false,
-          titleTextStyle: GoogleFonts.inter(
+          titleTextStyle: _font(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimaryLight,
@@ -58,7 +66,7 @@ abstract class AppTheme {
         ),
         elevatedButtonTheme: _elevatedButtonTheme(AppColors.primary),
         outlinedButtonTheme: _outlinedButtonTheme(AppColors.primary),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           elevation: 3,
@@ -81,7 +89,7 @@ abstract class AppTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: AppColors.backgroundDark,
-        colorScheme: const ColorScheme.dark(
+        colorScheme: ColorScheme.dark(
           primary: AppColors.primaryLight,
           primaryContainer: Color(0xFF2A2D66),
           secondary: AppColors.accent,
@@ -105,7 +113,7 @@ abstract class AppTheme {
           elevation: 0,
           scrolledUnderElevation: 0,
           centerTitle: false,
-          titleTextStyle: GoogleFonts.inter(
+          titleTextStyle: _font(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: AppColors.textPrimaryDark,
@@ -130,7 +138,7 @@ abstract class AppTheme {
         ),
         elevatedButtonTheme: _elevatedButtonTheme(AppColors.primaryLight),
         outlinedButtonTheme: _outlinedButtonTheme(AppColors.primaryLight),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        floatingActionButtonTheme: FloatingActionButtonThemeData(
           backgroundColor: AppColors.primaryLight,
           foregroundColor: Colors.white,
           elevation: 3,
@@ -175,7 +183,7 @@ abstract class AppTheme {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: AppColors.error),
       ),
-      hintStyle: GoogleFonts.inter(color: hint, fontSize: 14),
+      hintStyle: _font(color: hint, fontSize: 14),
     );
   }
 
@@ -187,7 +195,7 @@ abstract class AppTheme {
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        textStyle: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w600),
+        textStyle: _font(fontSize: 15, fontWeight: FontWeight.w600),
       ),
     );
   }
@@ -209,7 +217,7 @@ abstract class AppTheme {
       indicatorColor: AppColors.primarySurface,
       labelTextStyle: WidgetStateProperty.resolveWith((states) {
         final selected = states.contains(WidgetState.selected);
-        return GoogleFonts.inter(
+        return _font(
           fontSize: 12,
           fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
           color: selected ? AppColors.primary : unselected,
@@ -228,10 +236,10 @@ abstract class AppTheme {
       indicatorColor: AppColors.primarySurface,
       labelType: NavigationRailLabelType.all,
       selectedLabelTextStyle:
-          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
+          _font(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary),
       unselectedLabelTextStyle:
-          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: unselected),
-      selectedIconTheme: const IconThemeData(color: AppColors.primary),
+          _font(fontSize: 12, fontWeight: FontWeight.w500, color: unselected),
+      selectedIconTheme: IconThemeData(color: AppColors.primary),
       unselectedIconTheme: IconThemeData(color: unselected),
     );
   }
@@ -240,9 +248,9 @@ abstract class AppTheme {
     return ChipThemeData(
       backgroundColor: bg,
       selectedColor: AppColors.primary,
-      labelStyle: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: label),
+      labelStyle: _font(fontSize: 12, fontWeight: FontWeight.w500, color: label),
       secondaryLabelStyle:
-          GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
+          _font(fontSize: 12, fontWeight: FontWeight.w500, color: Colors.white),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       side: BorderSide.none,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -251,20 +259,20 @@ abstract class AppTheme {
 
   static TextTheme _buildTextTheme(Color c) {
     return TextTheme(
-      displayLarge: GoogleFonts.inter(fontSize: 32, fontWeight: FontWeight.w800, color: c),
-      displayMedium: GoogleFonts.inter(fontSize: 28, fontWeight: FontWeight.w700, color: c),
-      headlineLarge: GoogleFonts.inter(fontSize: 24, fontWeight: FontWeight.w700, color: c),
-      headlineMedium: GoogleFonts.inter(fontSize: 20, fontWeight: FontWeight.w600, color: c),
-      headlineSmall: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w600, color: c),
-      titleLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: c),
-      titleMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: c),
-      titleSmall: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500, color: c),
-      bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w400, color: c),
-      bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w400, color: c),
-      bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w400, color: c),
-      labelLarge: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w500, color: c),
-      labelMedium: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: c),
-      labelSmall: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500, color: c),
+      displayLarge: _font(fontSize: 32, fontWeight: FontWeight.w800, color: c),
+      displayMedium: _font(fontSize: 28, fontWeight: FontWeight.w700, color: c),
+      headlineLarge: _font(fontSize: 24, fontWeight: FontWeight.w700, color: c),
+      headlineMedium: _font(fontSize: 20, fontWeight: FontWeight.w600, color: c),
+      headlineSmall: _font(fontSize: 18, fontWeight: FontWeight.w600, color: c),
+      titleLarge: _font(fontSize: 16, fontWeight: FontWeight.w600, color: c),
+      titleMedium: _font(fontSize: 14, fontWeight: FontWeight.w600, color: c),
+      titleSmall: _font(fontSize: 13, fontWeight: FontWeight.w500, color: c),
+      bodyLarge: _font(fontSize: 16, fontWeight: FontWeight.w400, color: c),
+      bodyMedium: _font(fontSize: 14, fontWeight: FontWeight.w400, color: c),
+      bodySmall: _font(fontSize: 12, fontWeight: FontWeight.w400, color: c),
+      labelLarge: _font(fontSize: 14, fontWeight: FontWeight.w500, color: c),
+      labelMedium: _font(fontSize: 12, fontWeight: FontWeight.w500, color: c),
+      labelSmall: _font(fontSize: 10, fontWeight: FontWeight.w500, color: c),
     );
   }
 }

@@ -57,8 +57,8 @@ class _WebAttendancePageState extends State<WebAttendancePage> {
         _students = enr;
         _marks
           ..clear()
-          ..addEntries(enr.map((e) =>
-              MapEntry(e.studentId, map[e.studentId] ?? AttendanceStatus.present)));
+          ..addEntries(enr.map((e) => MapEntry(
+              e.studentId, map[e.studentId] ?? AttendanceStatus.present)));
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -88,8 +88,7 @@ class _WebAttendancePageState extends State<WebAttendancePage> {
     }
   }
 
-  int _count(AttendanceStatus s) =>
-      _marks.values.where((v) => v == s).length;
+  int _count(AttendanceStatus s) => _marks.values.where((v) => v == s).length;
 
   @override
   Widget build(BuildContext context) {
@@ -129,8 +128,8 @@ class _WebAttendancePageState extends State<WebAttendancePage> {
             children: [
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration:
-                    BoxDecoration(border: Border(bottom: BorderSide(color: t.line))),
+                decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: t.line))),
                 child: Row(
                   children: [
                     Expanded(
@@ -378,10 +377,7 @@ class _WebTimetablePageState extends State<WebTimetablePage> {
     if (narrow) {
       return Column(
         children: [
-          for (final card in dayCards) ...[
-            card,
-            const SizedBox(height: 12)
-          ]
+          for (final card in dayCards) ...[card, const SizedBox(height: 12)]
         ],
       );
     }
@@ -417,8 +413,7 @@ class _WebTimetablePageState extends State<WebTimetablePage> {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                      color: t.panel2,
-                      borderRadius: BorderRadius.circular(10)),
+                      color: t.panel2, borderRadius: BorderRadius.circular(10)),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -448,7 +443,6 @@ class WebFinancePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = WebTokens.of(context);
     final c = Get.find<WebDashboardController>();
     return Obx(() {
       return WebPageBody(
@@ -502,10 +496,7 @@ class WebFinancePage extends StatelessWidget {
       padding: const EdgeInsets.all(21),
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-            colors: [Color(0xFF5B5CE2), Color(0xFF4648C8)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight),
+        gradient: WebTokens.of(context).brandGradient,
         borderRadius: BorderRadius.circular(18),
       ),
       child: Column(
@@ -586,8 +577,7 @@ class WebFinancePage extends StatelessWidget {
                 widthFactor: c.collectionRate.clamp(0, 1).toDouble(),
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient:
-                        LinearGradient(colors: [t.primary, t.success]),
+                    gradient: LinearGradient(colors: [t.primary, t.success]),
                   ),
                 ),
               ),
@@ -607,13 +597,13 @@ class WebFinancePage extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _mini(t, "Outstanding",
-                    Formatters.money(c.outstanding), t.warning),
+                child: _mini(t, "Outstanding", Formatters.money(c.outstanding),
+                    t.warning),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _mini(
-                    t, "Pending slips", "${c.pendingInvoices}", t.danger),
+                child:
+                    _mini(t, "Pending slips", "${c.pendingInvoices}", t.danger),
               ),
             ],
           ),
@@ -689,8 +679,7 @@ class WebFinancePage extends StatelessWidget {
                                   : "Record payment",
                               icon: Iconsax.card,
                               kind: WebBtnKind.primary,
-                              onTap: () =>
-                                  showRecordPaymentModal(context, i))
+                              onTap: () => showRecordPaymentModal(context, i))
                           : Text("Paid in full",
                               style: TextStyle(
                                   color: WebTokens.of(context).muted,

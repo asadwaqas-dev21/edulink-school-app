@@ -62,7 +62,8 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
       padding: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surface,
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+        border:
+            Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         children: [
@@ -93,8 +94,10 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                     size: 18, color: AppColors.textTertiaryLight),
                 const SizedBox(width: 10),
                 Text("Search people, classes…",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textTertiaryLight)),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: AppColors.textTertiaryLight)),
               ],
             ),
           ),
@@ -147,15 +150,17 @@ class _DesktopTopBarState extends State<DesktopTopBar> {
                     const SizedBox(height: 2),
                     Text(
                       Formatters.dateTime(recent[i].createdAt),
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppColors.textTertiaryLight),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppColors.textTertiaryLight),
                     ),
                   ],
                 ),
               ),
             ),
           const PopupMenuDivider(),
-          const PopupMenuItem<int>(
+          PopupMenuItem<int>(
             value: -1,
             child: Text("View all announcements",
                 style: TextStyle(color: AppColors.primary)),

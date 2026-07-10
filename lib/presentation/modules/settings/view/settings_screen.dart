@@ -110,6 +110,79 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Widget _appearanceCard(BuildContext context) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Iconsax.brush_1),
+                const SizedBox(width: 12),
+                Text("Appearance",
+                    style: Theme.of(context).textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Text("Accent color",
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 10),
+            Obx(() {
+              final selected = _theme.primaryColor.toARGB32();
+              return Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: [
+                  for (final opt in ThemeController.colorOptions)
+                    GestureDetector(
+                      onTap: () => _theme.setPrimaryColor(opt.color),
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: opt.color,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: selected == opt.color.toARGB32()
+                                ? onSurface
+                                : Colors.transparent,
+                            width: 3,
+                          ),
+                        ),
+                        child: selected == opt.color.toARGB32()
+                            ? const Icon(Icons.check,
+                                color: Colors.white, size: 18)
+                            : null,
+                      ),
+                    ),
+                ],
+              );
+            }),
+            const SizedBox(height: 20),
+            Text("Typography",
+                style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 10),
+            Obx(() => Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final font in ThemeController.fontOptions)
+                      ChoiceChip(
+                        label: Text(font),
+                        selected: _theme.fontFamily == font,
+                        onSelected: (_) => _theme.setFont(font),
+                      ),
+                  ],
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _session.profile;
@@ -179,6 +252,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _appearanceCard(context),
           const SizedBox(height: 16),
           Card(
             child: ListTile(

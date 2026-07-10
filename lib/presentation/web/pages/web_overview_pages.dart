@@ -9,6 +9,7 @@ import "package:edulink/data/repositories/academics_repository.dart";
 import "package:edulink/domain/entities/profile.dart";
 import "package:edulink/domain/entities/school_class.dart";
 import "package:edulink/domain/entities/subject.dart";
+import "package:edulink/presentation/web/pages/web_activities_page.dart";
 import "package:edulink/presentation/web/web_dashboard_controller.dart";
 import "package:edulink/presentation/web/web_modals.dart";
 import "package:edulink/presentation/web/web_tokens.dart";
@@ -963,6 +964,19 @@ class _WebAcademicsPageState extends State<WebAcademicsPage> {
   final _academics = Get.find<AcademicsRepository>();
   late Future<List<Subject>> _subjects;
 
+  bool get _canView => Get.find<SessionController>().role.canTeach;
+
+  void _openActivities(SchoolClass cls, {Subject? subject}) {
+    Get.to(() => WebClassActivitiesScreen(cls: cls, initialSubject: subject));
+  }
+
+  SchoolClass? _classById(String id) {
+    for (final c in _c.classes) {
+      if (c.id == id) return c;
+    }
+    return null;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -985,8 +999,9 @@ class _WebAcademicsPageState extends State<WebAcademicsPage> {
         children: [
           WebPageHead(
             title: "Academics",
-            subtitle:
-                "Manage classes, sections, subjects and teacher assignments.",
+            subtitle: _canView
+                ? "Open a class to view its students, subjects, assignments, quizzes and submissions."
+                : "Manage classes, sections, subjects and teacher assignments.",
             actions: [
               WebButton(
                   label: "Create class",
@@ -1043,10 +1058,11 @@ class _WebAcademicsPageState extends State<WebAcademicsPage> {
                       );
                     }
                     return WebTable(
-                      columns: const [
-                        WebCol("Subject", flex: 3),
-                        WebCol("Code", flex: 2),
-                        WebCol("Teacher", flex: 3),
+                      columns: [
+                        const WebCol("Subject", flex: 3),
+                        const WebCol("Code", flex: 2),
+                        const WebCol("Teacher", flex: 3),
+                        if (_canView) const WebCol("", flex: 1, right: true),
                       ],
                       rows: [
                         for (final s in subjects)
@@ -1056,6 +1072,19 @@ class _WebAcademicsPageState extends State<WebAcademicsPage> {
                                     fontWeight: FontWeight.w700)),
                             Text(s.code ?? "—"),
                             Text(s.teacherName ?? "Unassigned"),
+                            if (_canView)
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TableAction(
+                                  Iconsax.task_square,
+                                  onTap: () {
+                                    final cls = _classById(s.classId);
+                                    if (cls != null) {
+                                      _openActivities(cls, subject: s);
+                                    }
+                                  },
+                                ),
+                              ),
                           ],
                       ],
                     );
@@ -1080,6 +1109,7 @@ class _WebAcademicsPageState extends State<WebAcademicsPage> {
     final t = WebTokens.of(context);
     return WebCard(
       clipBehavior: Clip.hardEdge,
+      onTap: _canView ? () => _openActivities(cls) : null,
       child: Stack(
         children: [
           Positioned(

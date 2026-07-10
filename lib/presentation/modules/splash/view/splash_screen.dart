@@ -10,7 +10,7 @@ class SplashScreen extends GetView<SplashController> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+        decoration: BoxDecoration(gradient: AppColors.primaryGradient),
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,

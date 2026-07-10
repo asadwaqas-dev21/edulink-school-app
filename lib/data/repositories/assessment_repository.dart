@@ -2,10 +2,12 @@ import "package:supabase_flutter/supabase_flutter.dart";
 import "package:edulink/core/config/supabase_config.dart";
 import "package:edulink/core/enums/status_enums.dart";
 import "package:edulink/domain/entities/assignment.dart";
+import "package:edulink/domain/entities/custom_test.dart";
 import "package:edulink/domain/entities/quiz.dart";
 import "package:edulink/domain/entities/quiz_question.dart";
 import "package:edulink/domain/entities/quiz_result.dart";
 import "package:edulink/domain/entities/submission.dart";
+import "package:edulink/domain/entities/test_result.dart";
 
 /// Assignments, submissions, quizzes and quiz questions.
 class AssessmentRepository {
@@ -174,5 +176,58 @@ class AssessmentRepository {
         .eq("student_id", studentId)
         .order("submitted_at", ascending: false);
     return (data as List).map((e) => QuizResult.fromMap(e)).toList();
+  }
+
+  // ── Custom Tests ──
+  Future<List<CustomTest>> customTestsForSubject(String subjectId) async {
+    final data = await _client
+        .from(SupabaseConfig.tCustomTests)
+        .select("*, subject:subject_id(name)")
+        .eq("subject_id", subjectId)
+        .order("test_date", ascending: false);
+    return (data as List).map((e) => CustomTest.fromMap(e)).toList();
+  }
+
+  Future<CustomTest> createCustomTest(CustomTest t) async {
+    final data = await _client
+        .from(SupabaseConfig.tCustomTests)
+        .insert(t.toMap())
+        .select("*, subject:subject_id(name)")
+        .single();
+    return CustomTest.fromMap(data);
+  }
+
+  Future<CustomTest> updateCustomTest(CustomTest t) async {
+    final data = await _client
+        .from(SupabaseConfig.tCustomTests)
+        .update(t.toMap())
+        .eq("id", t.id)
+        .select("*, subject:subject_id(name)")
+        .single();
+    return CustomTest.fromMap(data);
+  }
+
+  Future<void> deleteCustomTest(String id) async {
+    await _client.from(SupabaseConfig.tCustomTests).delete().eq("id", id);
+  }
+
+  // ── Test Results ──
+  Future<List<TestResult>> testResults(String testId) async {
+    final data = await _client
+        .from(SupabaseConfig.tTestResults)
+        .select("*, student:student_id(full_name)")
+        .eq("test_id", testId)
+        .order("created_at");
+    return (data as List).map((e) => TestResult.fromMap(e)).toList();
+  }
+
+  Future<void> upsertTestResults(List<TestResult> results) async {
+    if (results.isEmpty) return;
+    await _client
+        .from(SupabaseConfig.tTestResults)
+        .upsert(
+          results.map((r) => r.toMap()).toList(),
+          onConflict: "test_id,student_id",
+        );
   }
 }

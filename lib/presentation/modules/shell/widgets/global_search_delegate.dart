@@ -95,7 +95,7 @@ class GlobalSearchDelegate extends SearchDelegate<void> {
             ...data.classes.map((c) => ListTile(
                   leading: CircleAvatar(
                     backgroundColor: AppColors.primary.withValues(alpha: 0.12),
-                    child: const Icon(Iconsax.book_1, color: AppColors.primary),
+                    child: Icon(Iconsax.book_1, color: AppColors.primary),
                   ),
                   title: Text(c.displayName),
                   subtitle: Text(c.gradeLevel ?? "Class"),

@@ -10,6 +10,7 @@ import "package:edulink/presentation/web/pages/web_engagement_pages.dart";
 import "package:edulink/presentation/web/pages/web_ops_pages.dart";
 import "package:edulink/presentation/web/pages/web_overview_pages.dart";
 import "package:edulink/presentation/web/pages/web_parent_pages.dart";
+import "package:edulink/presentation/web/pages/web_performance_pages.dart";
 import "package:edulink/presentation/web/web_dashboard_controller.dart";
 import "package:edulink/presentation/web/web_tokens.dart";
 
@@ -37,6 +38,7 @@ class _WebShellState extends State<WebShell> {
     "Communication",
     "Reports",
     "Settings",
+    "Performance",
   ];
   static const _crumbs = [
     "Overview",
@@ -48,6 +50,7 @@ class _WebShellState extends State<WebShell> {
     "Announcements & messages",
     "Analytics",
     "Institute configuration",
+    "Student reports",
   ];
   static const _icons = [
     Iconsax.home_2,
@@ -59,6 +62,7 @@ class _WebShellState extends State<WebShell> {
     Iconsax.messages_1,
     Iconsax.chart_2,
     Iconsax.setting_2,
+    Iconsax.chart_success,
   ];
 
   @override
@@ -117,6 +121,8 @@ class _WebShellState extends State<WebShell> {
         return r.isPrincipal;
       case 8: // Settings
         return r.canManageInstitute;
+      case 9: // Performance
+        return r.isPrincipal || r.canTeach;
       default: // Dashboard, Timetable, Communication
         return true;
     }
@@ -124,8 +130,10 @@ class _WebShellState extends State<WebShell> {
 
   // Only build pages the current role can access; others stay lightweight
   // placeholders so their data fetches never run.
-  List<Widget> _pages() =>
-      [for (int i = 0; i < _labels.length; i++) _canAccess(i) ? _pageFor(i) : const SizedBox.shrink()];
+  List<Widget> _pages() => [
+        for (int i = 0; i < _labels.length; i++)
+          _canAccess(i) ? _pageFor(i) : const SizedBox.shrink()
+      ];
 
   Widget _pageFor(int i) {
     final isParent = _session.role.isParent;
@@ -148,6 +156,8 @@ class _WebShellState extends State<WebShell> {
         return const WebReportsPage();
       case 8:
         return const WebSettingsPage();
+      case 9:
+        return const WebPerformancePage();
       default:
         return const SizedBox.shrink();
     }
@@ -205,7 +215,14 @@ class _WebShellState extends State<WebShell> {
                   decoration: BoxDecoration(
                       gradient: t.brandGradient,
                       borderRadius: BorderRadius.circular(13)),
-                  child: const Icon(Iconsax.book_1, color: Colors.white, size: 22),
+                  clipBehavior: Clip.antiAlias,
+                  child: Image.asset(
+                    "assets/images/applogo.jpg",
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stack) => const Center(
+                      child: Icon(Iconsax.book_1, size: 20, color: Colors.white),
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 11),
                 RichText(
@@ -216,8 +233,8 @@ class _WebShellState extends State<WebShell> {
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.6),
                     children: [
-                      const TextSpan(text: "Edu"),
-                      TextSpan(text: "link", style: TextStyle(color: t.primary)),
+                      const TextSpan(text: "Kurchu"),
+                      TextSpan(text: "LMS", style: TextStyle(color: t.primary)),
                     ],
                   ),
                 ),
@@ -231,7 +248,8 @@ class _WebShellState extends State<WebShell> {
                 children: [
                   _navSection(t, "Overview", [0, 1, 2]),
                   _navSection(t, "Operations", [3, 4, 5]),
-                  _navSection(t, "Engagement", [6, 7, 8]),
+                  _navSection(t, "Insights", [7, 9]),
+                  _navSection(t, "Engagement", [6, 8]),
                 ],
               ),
             ),
@@ -278,8 +296,7 @@ class _WebShellState extends State<WebShell> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                Icon(icon,
-                    size: 19, color: active ? t.primary : t.muted),
+                Icon(icon, size: 19, color: active ? t.primary : t.muted),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(label,
@@ -325,8 +342,8 @@ class _WebShellState extends State<WebShell> {
             width: 38,
             height: 38,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
-                color: t.primarySoft, shape: BoxShape.circle),
+            decoration:
+                BoxDecoration(color: t.primarySoft, shape: BoxShape.circle),
             child: Text(Formatters.initials(p?.fullName),
                 style: TextStyle(
                     color: t.primary,
@@ -345,7 +362,7 @@ class _WebShellState extends State<WebShell> {
                         color: t.ink,
                         fontSize: 12,
                         fontWeight: FontWeight.w700)),
-                Text("${_session.role.label} · Web",
+                Text(_session.role.label,
                     style: TextStyle(color: t.muted, fontSize: 10)),
               ],
             ),
@@ -412,8 +429,8 @@ class _WebShellState extends State<WebShell> {
     return SizedBox(
       width: 360,
       child: InkWell(
-        onTap: () =>
-            showSearch<void>(context: context, delegate: GlobalSearchDelegate()),
+        onTap: () => showSearch<void>(
+            context: context, delegate: GlobalSearchDelegate()),
         borderRadius: BorderRadius.circular(12),
         child: Container(
           height: 42,
@@ -432,8 +449,7 @@ class _WebShellState extends State<WebShell> {
                     style: TextStyle(color: t.muted, fontSize: 12)),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
                 decoration: BoxDecoration(
                     color: t.panel2,
                     border: Border.all(color: t.line),
@@ -510,9 +526,7 @@ class _WebShellState extends State<WebShell> {
               enabled: false,
               child: Text("Announcements",
                   style: TextStyle(
-                      color: t.ink,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800)),
+                      color: t.ink, fontSize: 12, fontWeight: FontWeight.w800)),
             ),
             ...items.map((a) => PopupMenuItem<void>(
                   onTap: () => _go("communication"),

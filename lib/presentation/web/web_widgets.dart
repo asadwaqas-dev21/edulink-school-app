@@ -219,7 +219,7 @@ class StatusChip extends StatelessWidget {
   }
 }
 
-enum WebBtnKind { primary, plain, success }
+enum WebBtnKind { primary, plain, success, danger, secondary }
 
 /// Prototype button (.btn / .btn.primary / .btn.success).
 class WebButton extends StatelessWidget {
@@ -237,8 +237,10 @@ class WebButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = WebTokens.of(context);
-    final bool filled = kind != WebBtnKind.plain;
-    final Color base = kind == WebBtnKind.success ? t.success : t.primary;
+    final bool filled = kind != WebBtnKind.plain && kind != WebBtnKind.secondary;
+    Color base = t.primary;
+    if (kind == WebBtnKind.success) base = t.success;
+    if (kind == WebBtnKind.danger) base = t.danger;
     return Material(
       color: filled ? base : t.panel,
       borderRadius: BorderRadius.circular(11),
