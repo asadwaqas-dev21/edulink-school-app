@@ -59,8 +59,8 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen> {
     final formKey = GlobalKey<FormState>();
     Profile? teacher;
 
-    final teachers = await _repo.peopleByRole(
-        _session.instituteId ?? "", "teacher");
+    final teachers =
+        await _repo.peopleByRole(_session.instituteId ?? "", "teacher");
 
     if (!mounted) return;
     final ok = await showModalBottomSheet<bool>(
@@ -98,8 +98,8 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen> {
                   initialValue: teacher,
                   decoration: const InputDecoration(labelText: "Teacher"),
                   items: teachers
-                      .map((t) => DropdownMenuItem(
-                          value: t, child: Text(t.fullName)))
+                      .map((t) =>
+                          DropdownMenuItem(value: t, child: Text(t.fullName)))
                       .toList(),
                   onChanged: (v) => setSheet(() => teacher = v),
                 ),
@@ -256,16 +256,14 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen> {
                 final s = subjects[i];
                 return Card(
                   child: ListTile(
-                    leading: Icon(Iconsax.book_1,
-                        color: AppColors.primary),
+                    leading: Icon(Iconsax.book_1, color: AppColors.primary),
                     title: Text(s.name),
                     subtitle: Text([
                       if (s.code != null) s.code!,
                       if (s.teacherName != null) "Teacher: ${s.teacherName}",
                     ].join("  •  ")),
                     trailing: const Icon(Iconsax.arrow_right_3, size: 18),
-                    onTap: () =>
-                        Get.to(() => SubjectContentScreen(subject: s)),
+                    onTap: () => Get.to(() => SubjectContentScreen(subject: s)),
                   ),
                 );
               },
@@ -314,7 +312,8 @@ class _ClassDetailsScreenState extends State<ClassDetailsScreen> {
                   child: ListTile(
                     leading: AppAvatar(name: e.studentName, radius: 20),
                     title: Text(e.studentName ?? "Student"),
-                    subtitle: e.rollNo != null ? Text("Roll: ${e.rollNo}") : null,
+                    subtitle:
+                        e.rollNo != null ? Text("Roll: ${e.rollNo}") : null,
                     trailing: canManage
                         ? IconButton(
                             icon: const Icon(Iconsax.trash,
